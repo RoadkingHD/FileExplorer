@@ -11,13 +11,6 @@ namespace FileExplorer.Controls
                 components.Dispose();
             }
             CleanupTempPreview();
-
-            if (_pdfDocument != null)
-            {
-                _pdfDocument.Dispose();
-                _pdfDocument = null;
-            }
-
             base.Dispose(disposing);
         }
 
@@ -37,7 +30,6 @@ namespace FileExplorer.Controls
             this.expandAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.collapseAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.webBrowserPreview = new System.Windows.Forms.WebBrowser();
-            this.pdfViewerPreview = new PdfiumViewer.PdfViewer();
             this.panelTop.SuspendLayout();
             this.contextMenuStripTree.SuspendLayout();
             this.SuspendLayout();
@@ -167,15 +159,6 @@ namespace FileExplorer.Controls
             this.webBrowserPreview.TabIndex = 2;
             this.webBrowserPreview.Visible = false;
             // 
-            // pdfViewerPreview
-            // 
-            this.pdfViewerPreview.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pdfViewerPreview.Location = new System.Drawing.Point(0, 26);
-            this.pdfViewerPreview.Name = "pdfViewerPreview";
-            this.pdfViewerPreview.Size = new System.Drawing.Size(300, 424);
-            this.pdfViewerPreview.TabIndex = 4;
-            this.pdfViewerPreview.Visible = false;
-            // 
             // PreviewPanel
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -183,7 +166,6 @@ namespace FileExplorer.Controls
             this.Controls.Add(this.richTextBoxPreview);
             this.Controls.Add(this.treeViewPreview);
             this.Controls.Add(this.webBrowserPreview);
-            this.Controls.Add(this.pdfViewerPreview);
             this.Controls.Add(this.panelTop);
             this.Name = "PreviewPanel";
             this.Size = new System.Drawing.Size(300, 450);
@@ -205,6 +187,5 @@ namespace FileExplorer.Controls
         private System.Windows.Forms.ToolStripMenuItem expandAllToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem collapseAllToolStripMenuItem;
         private System.Windows.Forms.WebBrowser webBrowserPreview;
-        private PdfiumViewer.PdfViewer pdfViewerPreview;
     }
 }

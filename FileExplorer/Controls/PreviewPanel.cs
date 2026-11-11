@@ -11,9 +11,7 @@ using System.Threading;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using System.Xml.Linq;
-using NPOI.SS.UserModel;
-using NPOI.XWPF.UserModel;
-using PdfiumViewer;
+using Microsoft.Win32;
 
 namespace FileExplorer.Controls
 {
@@ -21,7 +19,6 @@ namespace FileExplorer.Controls
     {
         private const long MaxPreviewBytes = 2 * 1024 * 1024;
         private const long MaxOfficePreviewBytes = 20 * 1024 * 1024;
-        private const int MaxExtractedTextChars = 1000000;
         private const int MaxTreeNodes = 10000;
 
         private static readonly Color KeyColor = Color.FromArgb(163, 21, 21);
@@ -70,7 +67,6 @@ namespace FileExplorer.Controls
         private bool _treeTruncated;
         private int _previewSequence;
         private string _lastTempFolder;
-        private PdfDocument _pdfDocument;
 
         public PreviewPanel()
         {
@@ -245,48 +241,43 @@ namespace FileExplorer.Controls
 
         private void ShowPdf(string path)
         {
+            if (!IsPdfPreviewAvailable())
+            {
+                ShowMessage("PDF preview requires Adobe Reader or Adobe Acrobat with browser integration.");
+                return;
+            }
+
+            SetWebMode();
+            webBrowserPreview.Navigate(new Uri(path));
+        }
+
+        private static bool IsPdfPreviewAvailable()
+        {
             try
             {
-                btnTree.Visible = false;
-                btnText.Visible = false;
-                treeViewPreview.Visible = false;
-                richTextBoxPreview.Visible = false;
-                chkWrap.Visible = false;
-                webBrowserPreview.Visible = false;
-                pdfViewerPreview.Visible = true;
-
-                PdfDocument document = PdfDocument.Load(path);
-
-                if (_pdfDocument != null)
+                using (RegistryKey acrobat = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Adobe\Adobe Acrobat"))
+                using (RegistryKey reader = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Adobe\Acrobat Reader"))
+                using (RegistryKey documentClass = Registry.ClassesRoot.OpenSubKey("AcroExch.Document"))
                 {
-                    _pdfDocument.Dispose();
+                    return acrobat != null || reader != null || documentClass != null;
                 }
-
-                _pdfDocument = document;
-                pdfViewerPreview.Document = document;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                ShowMessage("Cannot preview this PDF.\r\n\r\n" + ex.Message);
+                return true;
             }
         }
 
         private void ShowOfficePreview(string path)
         {
             int sequence = ++_previewSequence;
-            ShowMessage("Extracting content for preview...");
+            ShowMessage("Converting document for preview...");
             Cursor = Cursors.WaitCursor;
 
             var thread = new Thread(() =>
             {
-                string text = TryExtractOfficeText(path);
-                string htmlPath = null;
-                bool converted = false;
-
-                if (string.IsNullOrWhiteSpace(text))
-                {
-                    converted = TryConvertOfficeToHtml(path, out htmlPath);
-                }
+                string htmlPath;
+                bool converted = TryConvertOfficeToHtml(path, out htmlPath);
 
                 try
                 {
@@ -299,11 +290,7 @@ namespace FileExplorer.Controls
 
                         Cursor = Cursors.Default;
 
-                        if (!string.IsNullOrWhiteSpace(text))
-                        {
-                            ShowText(text, false, false);
-                        }
-                        else if (converted && File.Exists(htmlPath))
+                        if (converted && File.Exists(htmlPath))
                         {
                             ShowHtmlFile(htmlPath);
                         }
@@ -319,104 +306,6 @@ namespace FileExplorer.Controls
             });
             thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
-        }
-
-        private static string TryExtractOfficeText(string path)
-        {
-            try
-            {
-                string extension = Path.GetExtension(path).ToLowerInvariant();
-                string text;
-
-                if (extension == ".docx")
-                {
-                    text = ExtractDocxText(path);
-                }
-                else if (extension == ".xls" || extension == ".xlsx")
-                {
-                    text = ExtractWorkbookText(path);
-                }
-                else
-                {
-                    return null;
-                }
-
-                if (string.IsNullOrWhiteSpace(text))
-                {
-                    return null;
-                }
-
-                if (text.Length > MaxExtractedTextChars)
-                {
-                    text = text.Substring(0, MaxExtractedTextChars) + "\r\n\r\n(... preview truncated ...)";
-                }
-
-                return text;
-            }
-            catch (Exception)
-            {
-                return null;
-            }
-        }
-
-        private static string ExtractDocxText(string path)
-        {
-            using (var stream = File.OpenRead(path))
-            {
-                var document = new XWPFDocument(stream);
-                var builder = new StringBuilder();
-
-                foreach (XWPFParagraph paragraph in document.Paragraphs)
-                {
-                    builder.AppendLine(paragraph.Text);
-                }
-
-                foreach (XWPFTable table in document.Tables)
-                {
-                    foreach (XWPFTableRow row in table.Rows)
-                    {
-                        foreach (XWPFTableCell cell in row.GetTableCells())
-                        {
-                            builder.Append(cell.GetText());
-                            builder.Append('\t');
-                        }
-
-                        builder.AppendLine();
-                    }
-                }
-
-                return builder.ToString();
-            }
-        }
-
-        private static string ExtractWorkbookText(string path)
-        {
-            using (var stream = File.OpenRead(path))
-            {
-                IWorkbook workbook = WorkbookFactory.Create(stream);
-                var builder = new StringBuilder();
-
-                for (int sheetIndex = 0; sheetIndex < workbook.NumberOfSheets; sheetIndex++)
-                {
-                    ISheet sheet = workbook.GetSheetAt(sheetIndex);
-                    builder.AppendLine("[" + sheet.SheetName + "]");
-
-                    foreach (IRow row in sheet)
-                    {
-                        foreach (NPOI.SS.UserModel.ICell cell in row)
-                        {
-                            builder.Append(cell.ToString());
-                            builder.Append('\t');
-                        }
-
-                        builder.AppendLine();
-                    }
-
-                    builder.AppendLine();
-                }
-
-                return builder.ToString();
-            }
         }
 
         private bool TryConvertOfficeToHtml(string path, out string htmlPath)
