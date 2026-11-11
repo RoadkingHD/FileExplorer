@@ -8,7 +8,9 @@ A Windows Explorer style file browser for Windows, built with C# WinForms on .NE
 - Real system icons via the Windows shell (`SHGetFileInfo`)
 - Back / Forward / Up navigation with an address bar (`~` and `%ENV%` supported)
 - Zip files and folders (toolbar button or right-click), extract `.zip` files with right-click
-- Copy / paste and new folder in the right-click menus of the folder tree and file list
+- Copy / cut / paste (paste-move for cut items, shell `Preferred DropEffect` compatible with Explorer) and new folder in the right-click menus of the folder tree and file list
+- Rename files and folders (F2 or right-click), with conflict and invalid-character checks
+- Drag & drop into the list: drop from Explorer to copy, drag within the list onto a folder to move
 - Preview panel can be docked right or bottom (View menu)
 - Custom right-click actions with file-extension filters (`.txt; .md; *.log`, `*` = all),
   arguments support `{file}` and `{files}` placeholders; stored in `%APPDATA%\FileExplorer\custom-actions.json`
