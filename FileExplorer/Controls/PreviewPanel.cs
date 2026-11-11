@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using System.Xml.Linq;
 
@@ -12,6 +14,17 @@ namespace FileExplorer.Controls
     public partial class PreviewPanel : UserControl
     {
         private const long MaxPreviewBytes = 2 * 1024 * 1024;
+        private const int MaxTreeNodes = 10000;
+
+        private static readonly Color KeyColor = Color.FromArgb(163, 21, 21);
+        private static readonly Color StringColor = Color.FromArgb(0, 128, 0);
+        private static readonly Color NumberColor = Color.FromArgb(43, 82, 163);
+        private static readonly Color LiteralColor = Color.FromArgb(120, 0, 120);
+        private static readonly Color PunctuationColor = Color.FromArgb(128, 128, 128);
+        private static readonly Color ElementColor = Color.FromArgb(43, 82, 163);
+        private static readonly Color AttributeColor = Color.FromArgb(163, 21, 21);
+        private static readonly Color CommentColor = Color.FromArgb(0, 128, 0);
+        private static readonly Color ContentColor = Color.FromArgb(0, 0, 0);
 
         private static readonly HashSet<string> HtmlExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -28,6 +41,15 @@ namespace FileExplorer.Controls
             ".csproj",
             ".vbproj"
         };
+
+        private readonly JavaScriptSerializer _serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+
+        private string _textContent;
+        private bool _jsonMode;
+        private bool _xmlMode;
+        private bool _treeBuilt;
+        private int _treeNodeCount;
+        private bool _treeTruncated;
 
         public PreviewPanel()
         {
@@ -49,6 +71,11 @@ namespace FileExplorer.Controls
                 labelPreviewFile.Text = info.Name + "  (" + FormatSize(info.Length) + ")";
 
                 string extension = Path.GetExtension(path);
+                _jsonMode = extension.Equals(".json", StringComparison.OrdinalIgnoreCase);
+                _xmlMode = XmlExtensions.Contains(extension);
+
+                btnTree.Visible = _jsonMode || _xmlMode;
+                btnText.Visible = _jsonMode || _xmlMode;
 
                 if (HtmlExtensions.Contains(extension))
                 {
@@ -68,19 +95,30 @@ namespace FileExplorer.Controls
                     return;
                 }
 
-                string content = ReadText(path);
+                string raw = ReadText(path);
 
-                if (extension.Equals(".json", StringComparison.OrdinalIgnoreCase))
+                if (_jsonMode)
                 {
-                    ShowText(PrettyPrintJson(content), true);
+                    _textContent = PrettyPrintJson(raw);
                 }
-                else if (XmlExtensions.Contains(extension))
+                else if (_xmlMode)
                 {
-                    ShowText(IndentXml(content), false);
+                    _textContent = IndentXml(raw);
                 }
                 else
                 {
-                    ShowText(content, false);
+                    _textContent = raw;
+                }
+
+                _treeBuilt = false;
+
+                if (_jsonMode || _xmlMode)
+                {
+                    ShowTree();
+                }
+                else
+                {
+                    ShowText(_textContent, false, false);
                 }
             }
             catch (Exception ex)
@@ -92,18 +130,24 @@ namespace FileExplorer.Controls
         public void ShowEmpty()
         {
             labelPreviewFile.Text = "No preview available";
+            btnTree.Visible = false;
+            btnText.Visible = false;
 
             webBrowserPreview.Visible = false;
+            treeViewPreview.Visible = false;
             richTextBoxPreview.Visible = true;
+            chkWrap.Visible = true;
             richTextBoxPreview.Clear();
             richTextBoxPreview.ForeColor = SystemColors.GrayText;
             richTextBoxPreview.Text = "Select a single file to preview it here.\r\n\r\nSupported: text, JSON, XML, HTML.";
         }
 
-        private void ShowText(string content, bool highlightJson)
+        private void ShowText(string content, bool highlightJson, bool highlightMarkup)
         {
             webBrowserPreview.Visible = false;
+            treeViewPreview.Visible = false;
             richTextBoxPreview.Visible = true;
+            chkWrap.Visible = true;
             richTextBoxPreview.ForeColor = SystemColors.WindowText;
             richTextBoxPreview.Text = content;
             richTextBoxPreview.SelectionStart = 0;
@@ -113,23 +157,445 @@ namespace FileExplorer.Controls
             {
                 HighlightJson();
             }
+            else if (highlightMarkup)
+            {
+                HighlightMarkup();
+            }
+        }
+
+        private void ShowTree()
+        {
+            if (!_treeBuilt)
+            {
+                BuildTree();
+                _treeBuilt = true;
+            }
+
+            if (treeViewPreview.Nodes.Count == 0)
+            {
+                return;
+            }
+
+            webBrowserPreview.Visible = false;
+            richTextBoxPreview.Visible = false;
+            chkWrap.Visible = false;
+            treeViewPreview.Visible = true;
         }
 
         private void ShowHtml(string content)
         {
+            btnTree.Visible = false;
+            btnText.Visible = false;
+            treeViewPreview.Visible = false;
             richTextBoxPreview.Visible = false;
+            chkWrap.Visible = false;
             webBrowserPreview.Visible = true;
             webBrowserPreview.DocumentText = content;
         }
 
         private void ShowMessage(string message)
         {
+            btnTree.Visible = false;
+            btnText.Visible = false;
             webBrowserPreview.Visible = false;
+            treeViewPreview.Visible = false;
             richTextBoxPreview.Visible = true;
+            chkWrap.Visible = true;
             richTextBoxPreview.ForeColor = SystemColors.GrayText;
             richTextBoxPreview.Clear();
             richTextBoxPreview.Text = message;
         }
+
+        #region Foldable tree
+
+        private void BuildTree()
+        {
+            treeViewPreview.BeginUpdate();
+            treeViewPreview.Nodes.Clear();
+            _treeNodeCount = 0;
+            _treeTruncated = false;
+
+            bool built = _jsonMode ? TryBuildJsonTree() : TryBuildXmlTree();
+
+            if (built && treeViewPreview.Nodes.Count > 0)
+            {
+                treeViewPreview.Nodes[0].Expand();
+            }
+
+            treeViewPreview.EndUpdate();
+
+            if (!built)
+            {
+                ShowText(_textContent, _jsonMode, !_jsonMode);
+            }
+        }
+
+        private bool TryBuildJsonTree()
+        {
+            object root;
+
+            try
+            {
+                root = _serializer.DeserializeObject(_textContent);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            var rootLine = new NodeLine();
+            rootLine.Add("json", PunctuationColor);
+            var rootNode = NewNode(rootLine);
+            treeViewPreview.Nodes.Add(rootNode);
+            AddJsonChildren(rootNode, root);
+            return true;
+        }
+
+        private void AddJsonChildren(TreeNode parent, object value)
+        {
+            var dictionary = value as Dictionary<string, object>;
+
+            if (dictionary != null)
+            {
+                foreach (KeyValuePair<string, object> pair in dictionary)
+                {
+                    if (_treeTruncated)
+                    {
+                        break;
+                    }
+
+                    AddJsonValue(parent, pair.Key, pair.Value);
+                }
+
+                return;
+            }
+
+            var array = value as object[];
+
+            if (array != null)
+            {
+                for (int i = 0; i < array.Length; i++)
+                {
+                    if (_treeTruncated)
+                    {
+                        break;
+                    }
+
+                    AddJsonValue(parent, "[" + i + "]", array[i]);
+                }
+            }
+        }
+
+        private void AddJsonValue(TreeNode parent, string key, object value)
+        {
+            if (_treeTruncated)
+            {
+                return;
+            }
+
+            bool isContainer = value is Dictionary<string, object> || value is object[];
+            var line = new NodeLine();
+
+            if (key != null)
+            {
+                line.Add(key, KeyColor);
+                line.Add(": ", PunctuationColor);
+            }
+
+            var node = NewNode(line);
+
+            if (isContainer)
+            {
+                var dictionary = value as Dictionary<string, object>;
+
+                if (dictionary != null)
+                {
+                    line.Add("{ " + dictionary.Count + " }", PunctuationColor);
+                }
+                else
+                {
+                    line.Add("[ " + ((object[])value).Length + " ]", PunctuationColor);
+                }
+
+                parent.Nodes.Add(node);
+                AddJsonChildren(node, value);
+            }
+            else
+            {
+                line.Add(FormatJsonPrimitive(value), JsonPrimitiveColor(value));
+                parent.Nodes.Add(node);
+            }
+
+            if (_treeTruncated && parent.Nodes.Count > 0 && !(parent.Nodes[parent.Nodes.Count - 1].Tag is NodeLine truncatedLine && truncatedLine.IsTruncatedMarker))
+            {
+                var marker = new NodeLine();
+                marker.IsTruncatedMarker = true;
+                marker.Add("(truncated)", PunctuationColor);
+                parent.Nodes.Add(NewNode(marker));
+            }
+        }
+
+        private static string FormatJsonPrimitive(object value)
+        {
+            if (value == null)
+            {
+                return "null";
+            }
+
+            if (value is string)
+            {
+                return "\"" + value + "\"";
+            }
+
+            if (value is bool)
+            {
+                return ((bool)value) ? "true" : "false";
+            }
+
+            return Convert.ToString(value, CultureInfo.InvariantCulture);
+        }
+
+        private static Color JsonPrimitiveColor(object value)
+        {
+            if (value is string)
+            {
+                return StringColor;
+            }
+
+            if (value == null || value is bool)
+            {
+                return LiteralColor;
+            }
+
+            return NumberColor;
+        }
+
+        private bool TryBuildXmlTree()
+        {
+            XDocument document;
+
+            try
+            {
+                document = XDocument.Parse(_textContent);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            var rootLine = new NodeLine();
+            rootLine.Add("xml", PunctuationColor);
+            var rootNode = NewNode(rootLine);
+            treeViewPreview.Nodes.Add(rootNode);
+
+            if (document.Root != null)
+            {
+                rootNode.Nodes.Add(CreateXmlElementNode(document.Root));
+            }
+
+            return true;
+        }
+
+        private TreeNode CreateXmlElementNode(XElement element)
+        {
+            var line = new NodeLine();
+            var node = NewNode(line);
+
+            line.Add("<", PunctuationColor);
+            line.Add(element.Name.LocalName, ElementColor);
+
+            foreach (XAttribute attribute in element.Attributes())
+            {
+                line.Add(" " + attribute.Name.LocalName, AttributeColor);
+                line.Add("=\"", PunctuationColor);
+                line.Add(attribute.Value, StringColor);
+                line.Add("\"", PunctuationColor);
+            }
+
+            bool hasElements = element.HasElements;
+            bool hasText = element.Nodes().OfType<XText>().Any(t => !string.IsNullOrWhiteSpace(t.Value));
+
+            if (!hasElements && hasText)
+            {
+                line.Add(">", PunctuationColor);
+                line.Add(element.Value.Trim(), ContentColor);
+                line.Add("</" + element.Name.LocalName + ">", PunctuationColor);
+                return node;
+            }
+
+            line.Add(hasElements || hasText ? ">" : "/>", PunctuationColor);
+
+            foreach (XNode child in element.Nodes())
+            {
+                if (_treeTruncated)
+                {
+                    break;
+                }
+
+                var childElement = child as XElement;
+
+                if (childElement != null)
+                {
+                    node.Nodes.Add(CreateXmlElementNode(childElement));
+                    continue;
+                }
+
+                var comment = child as XComment;
+
+                if (comment != null)
+                {
+                    node.Nodes.Add(CreateXmlCommentNode(comment.Value));
+                    continue;
+                }
+
+                var text = child as XText;
+
+                if (text != null && !string.IsNullOrWhiteSpace(text.Value))
+                {
+                    node.Nodes.Add(CreateXmlTextNode(text.Value.Trim()));
+                }
+            }
+
+            if (hasElements || hasText)
+            {
+                var closeLine = new NodeLine();
+                closeLine.Add("</" + element.Name.LocalName + ">", PunctuationColor);
+                node.Nodes.Add(NewNode(closeLine));
+            }
+
+            return node;
+        }
+
+        private TreeNode CreateXmlCommentNode(string comment)
+        {
+            var line = new NodeLine();
+            line.Add("<!-- " + comment.Trim() + " -->", CommentColor);
+            return NewNode(line);
+        }
+
+        private TreeNode CreateXmlTextNode(string text)
+        {
+            var line = new NodeLine();
+            line.Add(text, ContentColor);
+            return NewNode(line);
+        }
+
+        private TreeNode NewNode(NodeLine line)
+        {
+            _treeNodeCount++;
+
+            if (_treeNodeCount > MaxTreeNodes)
+            {
+                _treeTruncated = true;
+            }
+
+            return new TreeNode { Tag = line };
+        }
+
+        private void ExpandAllTreeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            treeViewPreview.ExpandAll();
+        }
+
+        private void CollapseAllTreeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            treeViewPreview.CollapseAll();
+
+            if (treeViewPreview.Nodes.Count > 0)
+            {
+                treeViewPreview.Nodes[0].Expand();
+            }
+        }
+
+        private void BtnTree_Click(object sender, EventArgs e)
+        {
+            if (_jsonMode || _xmlMode)
+            {
+                ShowTree();
+            }
+        }
+
+        private void BtnText_Click(object sender, EventArgs e)
+        {
+            ShowText(_textContent, _jsonMode, !_jsonMode);
+        }
+
+        private void TreeViewPreview_DrawNode(object sender, DrawTreeNodeEventArgs e)
+        {
+            using (var backgroundBrush = new SolidBrush(treeViewPreview.BackColor))
+            {
+                e.Graphics.FillRectangle(backgroundBrush, e.Bounds);
+            }
+
+            bool selected = (e.State & TreeNodeStates.Selected) != 0;
+
+            if (selected)
+            {
+                var highlightBounds = new Rectangle(e.Bounds.X, e.Bounds.Y, treeViewPreview.ClientSize.Width - e.Bounds.X, e.Bounds.Height);
+                using (var brush = new SolidBrush(Color.FromArgb(204, 228, 247)))
+                {
+                    e.Graphics.FillRectangle(brush, highlightBounds);
+                }
+            }
+
+            var line = e.Node.Tag as NodeLine;
+
+            if (line == null)
+            {
+                TextRenderer.DrawText(e.Graphics, e.Node.Text, treeViewPreview.Font, e.Bounds, treeViewPreview.ForeColor, TextFormatFlags.Default);
+                return;
+            }
+
+            int x = e.Bounds.X;
+            int height = e.Bounds.Height;
+
+            foreach (Segment segment in line.Segments)
+            {
+                if (x >= treeViewPreview.ClientSize.Width)
+                {
+                    break;
+                }
+
+                Size size = TextRenderer.MeasureText(e.Graphics, segment.Text, treeViewPreview.Font, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
+                var segmentBounds = new Rectangle(x, e.Bounds.Y, size.Width, height);
+                TextRenderer.DrawText(e.Graphics, segment.Text, treeViewPreview.Font, segmentBounds, segment.Color, TextFormatFlags.NoPadding);
+                x += size.Width;
+            }
+        }
+
+        private sealed class Segment
+        {
+            public Segment(string text, Color color)
+            {
+                Text = text;
+                Color = color;
+            }
+
+            public string Text { get; private set; }
+
+            public Color Color { get; private set; }
+        }
+
+        private sealed class NodeLine
+        {
+            public NodeLine()
+            {
+                Segments = new List<Segment>();
+            }
+
+            public List<Segment> Segments { get; private set; }
+
+            public bool IsTruncatedMarker { get; set; }
+
+            public void Add(string text, Color color)
+            {
+                Segments.Add(new Segment(text, color));
+            }
+        }
+
+        #endregion
+
+        #region Text reading and formatting
 
         private static string ReadText(string path)
         {
@@ -232,6 +698,10 @@ namespace FileExplorer.Controls
             return builder.ToString();
         }
 
+        #endregion
+
+        #region Text highlighting
+
         private void HighlightJson()
         {
             string text = richTextBoxPreview.Text;
@@ -261,7 +731,7 @@ namespace FileExplorer.Controls
                         int closeIndex = text.IndexOfAny(new[] { '}', ']', ',' }, i + 1);
                         bool isKey = colonIndex >= 0 && (closeIndex < 0 || colonIndex < closeIndex);
 
-                        Color color = isKey ? Color.FromArgb(163, 21, 21) : Color.FromArgb(0, 100, 0);
+                        Color color = isKey ? KeyColor : StringColor;
                         ColorRange(stringStart, i - stringStart + 1, color);
                     }
 
@@ -276,8 +746,6 @@ namespace FileExplorer.Controls
                         expectValue = false;
                         break;
                     case ':':
-                        expectValue = true;
-                        break;
                     case '{':
                     case '[':
                     case ',':
@@ -291,15 +759,15 @@ namespace FileExplorer.Controls
 
                         if (char.IsDigit(c) || c == '-')
                         {
-                            ColorRange(i, NumberLength(text, i), Color.FromArgb(43, 82, 163));
+                            ColorRange(i, NumberLength(text, i), NumberColor);
                         }
                         else if (char.IsLetter(c))
                         {
                             int length = LetterLength(text, i);
                             string word = text.Substring(i, length);
                             Color wordColor = word == "true" || word == "false" || word == "null"
-                                ? Color.FromArgb(120, 0, 120)
-                                : Color.FromArgb(43, 82, 163);
+                                ? LiteralColor
+                                : NumberColor;
                             ColorRange(i, length, wordColor);
                             i += length - 1;
                             expectValue = false;
@@ -307,6 +775,132 @@ namespace FileExplorer.Controls
 
                         break;
                 }
+            }
+        }
+
+        private void HighlightMarkup()
+        {
+            string text = richTextBoxPreview.Text;
+            int i = 0;
+
+            while (i < text.Length)
+            {
+                if (text[i] != '<')
+                {
+                    i++;
+                    continue;
+                }
+
+                int end = FindTagEnd(text, i);
+
+                if (end < 0)
+                {
+                    break;
+                }
+
+                if (end - i >= 4 && text[i + 1] == '!' && text[i + 2] == '-' && text[i + 3] == '-')
+                {
+                    ColorRange(i, end - i + 1, CommentColor);
+                }
+                else
+                {
+                    ColorTag(i, end);
+                }
+
+                i = end + 1;
+            }
+        }
+
+        private static int FindTagEnd(string text, int start)
+        {
+            char quote = '\0';
+
+            for (int i = start + 1; i < text.Length; i++)
+            {
+                char c = text[i];
+
+                if (quote != '\0')
+                {
+                    if (c == quote)
+                    {
+                        quote = '\0';
+                    }
+                }
+                else if (c == '"' || c == '\'')
+                {
+                    quote = c;
+                }
+                else if (c == '>')
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private void ColorTag(int start, int end)
+        {
+            string text = richTextBoxPreview.Text;
+            int i = start;
+            bool elementNameSeen = false;
+
+            while (i < end)
+            {
+                char c = text[i];
+
+                if (c == '<' || c == '>' || c == '/' || c == '?' || c == '=')
+                {
+                    ColorRange(i, 1, PunctuationColor);
+                    i++;
+                    continue;
+                }
+
+                if (char.IsWhiteSpace(c))
+                {
+                    i++;
+                    continue;
+                }
+
+                if (c == '"' || c == '\'')
+                {
+                    char quote = c;
+                    int j = i + 1;
+
+                    while (j < end && text[j] != quote)
+                    {
+                        j++;
+                    }
+
+                    ColorRange(i, j - i + 1, StringColor);
+                    i = j + 1;
+                    continue;
+                }
+
+                int tokenEnd = i;
+
+                while (tokenEnd < end && !char.IsWhiteSpace(text[tokenEnd]) && "\"'<>=/".IndexOf(text[tokenEnd]) < 0)
+                {
+                    tokenEnd++;
+                }
+
+                int lookahead = tokenEnd;
+
+                while (lookahead < end && char.IsWhiteSpace(text[lookahead]))
+                {
+                    lookahead++;
+                }
+
+                bool isAttribute = lookahead < end && text[lookahead] == '=';
+                Color color = isAttribute ? AttributeColor : ElementColor;
+
+                if (!elementNameSeen)
+                {
+                    elementNameSeen = true;
+                }
+
+                ColorRange(i, tokenEnd - i, color);
+                i = tokenEnd;
             }
         }
 
@@ -341,6 +935,8 @@ namespace FileExplorer.Controls
             richTextBoxPreview.SelectionColor = color;
             richTextBoxPreview.SelectionLength = 0;
         }
+
+        #endregion
 
         private static string FormatSize(long length)
         {

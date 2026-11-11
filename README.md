@@ -10,7 +10,7 @@ A Windows Explorer style file browser for Windows, built with C# WinForms on .NE
 - Zip files and folders (toolbar button or right-click), extract `.zip` files with right-click
 - Custom right-click actions with file-extension filters (`.txt; .md; *.log`, `*` = all),
   arguments support `{file}` and `{files}` placeholders; stored in `%APPDATA%\FileExplorer\custom-actions.json`
-- Hidable preview panel for text, JSON (pretty-printed + colored), XML (indented) and HTML (rendered)
+- Hidable preview panel for text, JSON and XML (foldable tree view with syntax coloring, plus a raw text view) and HTML (rendered)
 
 ## Build
 
