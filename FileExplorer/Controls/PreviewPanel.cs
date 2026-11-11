@@ -4,16 +4,21 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using System.Xml.Linq;
+using Microsoft.Win32;
 
 namespace FileExplorer.Controls
 {
     public partial class PreviewPanel : UserControl
     {
         private const long MaxPreviewBytes = 2 * 1024 * 1024;
+        private const long MaxOfficePreviewBytes = 20 * 1024 * 1024;
         private const int MaxTreeNodes = 10000;
 
         private static readonly Color KeyColor = Color.FromArgb(163, 21, 21);
@@ -42,6 +47,16 @@ namespace FileExplorer.Controls
             ".vbproj"
         };
 
+        private static readonly HashSet<string> OfficeExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".ppt",
+            ".pptx"
+        };
+
         private readonly JavaScriptSerializer _serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
 
         private string _textContent;
@@ -50,6 +65,8 @@ namespace FileExplorer.Controls
         private bool _treeBuilt;
         private int _treeNodeCount;
         private bool _treeTruncated;
+        private int _previewSequence;
+        private string _lastTempFolder;
 
         public PreviewPanel()
         {
@@ -80,6 +97,24 @@ namespace FileExplorer.Controls
                 if (HtmlExtensions.Contains(extension))
                 {
                     ShowHtml(ReadText(path));
+                    return;
+                }
+
+                if (extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    ShowPdf(path);
+                    return;
+                }
+
+                if (OfficeExtensions.Contains(extension))
+                {
+                    if (info.Length > MaxOfficePreviewBytes)
+                    {
+                        ShowMessage("Document is too large to preview (limit is 20 MB).");
+                        return;
+                    }
+
+                    ShowOfficePreview(path);
                     return;
                 }
 
@@ -184,13 +219,223 @@ namespace FileExplorer.Controls
 
         private void ShowHtml(string content)
         {
+            SetWebMode();
+            webBrowserPreview.DocumentText = content;
+        }
+
+        private void ShowHtmlFile(string path)
+        {
+            SetWebMode();
+            webBrowserPreview.Navigate(new Uri(path));
+        }
+
+        private void SetWebMode()
+        {
             btnTree.Visible = false;
             btnText.Visible = false;
             treeViewPreview.Visible = false;
             richTextBoxPreview.Visible = false;
             chkWrap.Visible = false;
             webBrowserPreview.Visible = true;
-            webBrowserPreview.DocumentText = content;
+        }
+
+        private void ShowPdf(string path)
+        {
+            if (!IsPdfPreviewAvailable())
+            {
+                ShowMessage("PDF preview requires Adobe Reader or Adobe Acrobat with browser integration.");
+                return;
+            }
+
+            SetWebMode();
+            webBrowserPreview.Navigate(new Uri(path));
+        }
+
+        private static bool IsPdfPreviewAvailable()
+        {
+            try
+            {
+                using (RegistryKey acrobat = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Adobe\Adobe Acrobat"))
+                using (RegistryKey reader = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Adobe\Acrobat Reader"))
+                using (RegistryKey documentClass = Registry.ClassesRoot.OpenSubKey("AcroExch.Document"))
+                {
+                    return acrobat != null || reader != null || documentClass != null;
+                }
+            }
+            catch (Exception)
+            {
+                return true;
+            }
+        }
+
+        private void ShowOfficePreview(string path)
+        {
+            int sequence = ++_previewSequence;
+            ShowMessage("Converting document for preview...");
+            Cursor = Cursors.WaitCursor;
+
+            var thread = new Thread(() =>
+            {
+                string htmlPath;
+                bool converted = TryConvertOfficeToHtml(path, out htmlPath);
+
+                try
+                {
+                    BeginInvoke((MethodInvoker)(() =>
+                    {
+                        if (sequence != _previewSequence)
+                        {
+                            return;
+                        }
+
+                        Cursor = Cursors.Default;
+
+                        if (converted && File.Exists(htmlPath))
+                        {
+                            ShowHtmlFile(htmlPath);
+                        }
+                        else
+                        {
+                            ShowMessage("Cannot preview this document.\r\n\r\nMicrosoft Office may not be installed, the file may be protected, or the format is not supported.");
+                        }
+                    }));
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+        }
+
+        private bool TryConvertOfficeToHtml(string path, out string htmlPath)
+        {
+            htmlPath = null;
+
+            string extension = Path.GetExtension(path).ToLowerInvariant();
+            string progId;
+            string collectionName;
+            int htmlFormat;
+
+            if (extension == ".doc" || extension == ".docx")
+            {
+                progId = "Word.Application";
+                collectionName = "Documents";
+                htmlFormat = 10;
+            }
+            else if (extension == ".xls" || extension == ".xlsx")
+            {
+                progId = "Excel.Application";
+                collectionName = "Workbooks";
+                htmlFormat = 44;
+            }
+            else if (extension == ".ppt" || extension == ".pptx")
+            {
+                progId = "PowerPoint.Application";
+                collectionName = "Presentations";
+                htmlFormat = 12;
+            }
+            else
+            {
+                return false;
+            }
+
+            Type officeType = Type.GetTypeFromProgID(progId);
+
+            if (officeType == null)
+            {
+                return false;
+            }
+
+            htmlPath = Path.Combine(PrepareTempPreviewFolder(), "preview.html");
+
+            object app = null;
+
+            try
+            {
+                app = Activator.CreateInstance(officeType);
+                object collection = officeType.InvokeMember(collectionName, BindingFlags.GetProperty, null, app, null);
+
+                object document;
+
+                if (progId == "Excel.Application")
+                {
+                    document = collection.GetType().InvokeMember("Open", BindingFlags.InvokeMethod, null, collection, new object[] { path, 0, true });
+                }
+                else if (progId == "PowerPoint.Application")
+                {
+                    document = collection.GetType().InvokeMember("Open", BindingFlags.InvokeMethod, null, collection, new object[] { path, -1, 0, 0 });
+                }
+                else
+                {
+                    document = collection.GetType().InvokeMember("Open", BindingFlags.InvokeMethod, null, collection, new object[] { path, false, true });
+                }
+
+                try
+                {
+                    document.GetType().InvokeMember("SaveAs", BindingFlags.InvokeMethod, null, document, new object[] { htmlPath, htmlFormat });
+                }
+                finally
+                {
+                    if (progId == "PowerPoint.Application")
+                    {
+                        document.GetType().InvokeMember("Close", BindingFlags.InvokeMethod, null, document, null);
+                    }
+                    else
+                    {
+                        document.GetType().InvokeMember("Close", BindingFlags.InvokeMethod, null, document, new object[] { false });
+                    }
+                }
+
+                return File.Exists(htmlPath);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+            finally
+            {
+                if (app != null)
+                {
+                    try
+                    {
+                        app.GetType().InvokeMember("Quit", BindingFlags.InvokeMethod, null, app, null);
+                    }
+                    catch (Exception)
+                    {
+                    }
+
+                    Marshal.FinalReleaseComObject(app);
+                }
+            }
+        }
+
+        private string PrepareTempPreviewFolder()
+        {
+            CleanupTempPreview();
+
+            string folder = Path.Combine(Path.GetTempPath(), "FileExplorerPreview", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+            _lastTempFolder = folder;
+            return folder;
+        }
+
+        private void CleanupTempPreview()
+        {
+            if (_lastTempFolder == null)
+            {
+                return;
+            }
+
+            try
+            {
+                Directory.Delete(_lastTempFolder, true);
+            }
+            catch (Exception)
+            {
+            }
+
+            _lastTempFolder = null;
         }
 
         private void ShowMessage(string message)

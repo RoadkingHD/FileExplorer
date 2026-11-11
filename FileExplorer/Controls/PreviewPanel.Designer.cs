@@ -10,6 +10,7 @@ namespace FileExplorer.Controls
             {
                 components.Dispose();
             }
+            CleanupTempPreview();
             base.Dispose(disposing);
         }
 

@@ -14,7 +14,7 @@ A Windows Explorer style file browser for Windows, built with C# WinForms on .NE
 - Preview panel can be docked right or bottom (View menu)
 - Custom right-click actions with file-extension filters (`.txt; .md; *.log`, `*` = all),
   arguments support `{file}` and `{files}` placeholders; stored in `%APPDATA%\FileExplorer\custom-actions.json`
-- Hidable preview panel for text, JSON and XML (foldable tree view with syntax coloring, plus a raw text view) and HTML (rendered)
+- Hidable preview panel for text, JSON and XML (foldable tree view with syntax coloring, plus a raw text view), HTML (rendered), PDF (Adobe Reader) and Word / Excel / PowerPoint documents (converted via Office COM automation)
 
 ## Build
 
