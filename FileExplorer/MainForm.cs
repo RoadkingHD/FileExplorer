@@ -467,6 +467,34 @@ namespace FileExplorer
             }
         }
 
+        private void PreviewRightToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetPreviewDock(false);
+        }
+
+        private void PreviewBottomToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetPreviewDock(true);
+        }
+
+        private void SetPreviewDock(bool bottom)
+        {
+            previewRightToolStripMenuItem.Checked = !bottom;
+            previewBottomToolStripMenuItem.Checked = bottom;
+
+            splitContent.Orientation = bottom ? Orientation.Horizontal : Orientation.Vertical;
+
+            try
+            {
+                splitContent.SplitterDistance = bottom
+                    ? Math.Max(100, splitContent.Height - 260)
+                    : Math.Max(100, splitContent.Width - 340);
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+
         private void LargeIconsToolStripMenuItem_Click(object sender, EventArgs e)
         {
             listViewFiles.View = View.LargeIcon;
@@ -613,6 +641,8 @@ namespace FileExplorer
             contextZipToolStripMenuItem.Enabled = hasSelection;
             contextCopyPathToolStripMenuItem.Enabled = hasSelection;
             contextDeleteToolStripMenuItem.Enabled = hasSelection;
+            contextCopyToolStripMenuItem.Enabled = hasSelection;
+            contextPasteToolStripMenuItem.Enabled = Clipboard.ContainsFileDropList();
 
             contextExtractHereToolStripMenuItem.Enabled = selected.Count == 1
                 && File.Exists(selected[0])
@@ -749,6 +779,288 @@ namespace FileExplorer
         private void ContextRefreshToolStripMenuItem_Click(object sender, EventArgs e)
         {
             RefreshCurrentFolder();
+        }
+
+        private void ContextCopyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            CopyPathsToClipboard(GetSelectedPaths());
+        }
+
+        private void ContextPasteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            PasteClipboardInto(_currentPath);
+        }
+
+        private void ContextNewFolderToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            CreateNewFolder(_currentPath);
+        }
+
+        #endregion
+
+        #region Folder context menu
+
+        private void TreeViewFolders_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                TreeNode node = treeViewFolders.GetNodeAt(e.Location);
+
+                if (node != null)
+                {
+                    treeViewFolders.SelectedNode = node;
+                }
+            }
+        }
+
+        private void ContextMenuStripFolders_Opening(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            string path = treeViewFolders.SelectedNode == null ? null : treeViewFolders.SelectedNode.Tag as string;
+            bool hasPath = !string.IsNullOrEmpty(path) && Directory.Exists(path);
+
+            contextFolderOpenToolStripMenuItem.Enabled = hasPath;
+            contextFolderCopyToolStripMenuItem.Enabled = hasPath;
+            contextFolderPasteToolStripMenuItem.Enabled = hasPath && Clipboard.ContainsFileDropList();
+            contextFolderNewFolderToolStripMenuItem.Enabled = hasPath;
+        }
+
+        private void ContextFolderOpenToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                Navigate(path);
+            }
+        }
+
+        private void ContextFolderCopyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                CopyPathsToClipboard(new List<string> { path });
+            }
+        }
+
+        private void ContextFolderPasteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                PasteClipboardInto(path);
+            }
+        }
+
+        private void ContextFolderNewFolderToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                CreateNewFolder(path);
+            }
+        }
+
+        private void ContextFolderRefreshToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            RefreshCurrentFolder();
+        }
+
+        private string GetSelectedTreePath()
+        {
+            return treeViewFolders.SelectedNode == null ? null : treeViewFolders.SelectedNode.Tag as string;
+        }
+
+        #endregion
+
+        #region Clipboard and folder creation
+
+        private static void CopyPathsToClipboard(IList<string> paths)
+        {
+            if (paths == null || paths.Count == 0)
+            {
+                return;
+            }
+
+            var list = new System.Collections.Specialized.StringCollection();
+            list.AddRange(paths.ToArray());
+            Clipboard.SetFileDropList(list);
+        }
+
+        private void PasteClipboardInto(string targetDirectory)
+        {
+            if (string.IsNullOrEmpty(targetDirectory) || !Directory.Exists(targetDirectory) || !Clipboard.ContainsFileDropList())
+            {
+                return;
+            }
+
+            var sources = Clipboard.GetFileDropList();
+            var errors = new List<string>();
+            int pasted = 0;
+
+            foreach (string source in sources)
+            {
+                try
+                {
+                    string name = Path.GetFileName(source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+                    if (name.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    string destination = GetAvailableName(targetDirectory, name);
+
+                    if (Directory.Exists(source))
+                    {
+                        CopyDirectory(source, destination);
+                        pasted++;
+                    }
+                    else if (File.Exists(source))
+                    {
+                        File.Copy(source, destination, false);
+                        pasted++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors.Add(source + ": " + ex.Message);
+                }
+            }
+
+            if (pasted > 0 && string.Equals(targetDirectory, _currentPath, StringComparison.OrdinalIgnoreCase))
+            {
+                RefreshCurrentFolder();
+            }
+
+            if (errors.Count > 0)
+            {
+                MessageBox.Show(this, "Some items could not be pasted.\r\n\r\n" + string.Join(Environment.NewLine, errors), "Paste", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private static string GetAvailableName(string directory, string name)
+        {
+            string candidate = Path.Combine(directory, name);
+
+            if (!Directory.Exists(candidate) && !File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            string baseName = Path.GetFileNameWithoutExtension(name);
+            string extension = Path.GetExtension(name);
+            int counter = 2;
+
+            while (true)
+            {
+                candidate = Path.Combine(directory, baseName + " (" + counter + ")" + extension);
+
+                if (!Directory.Exists(candidate) && !File.Exists(candidate))
+                {
+                    return candidate;
+                }
+
+                counter++;
+            }
+        }
+
+        private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
+        {
+            Directory.CreateDirectory(destinationDirectory);
+
+            foreach (string file in Directory.GetFiles(sourceDirectory))
+            {
+                File.Copy(file, Path.Combine(destinationDirectory, Path.GetFileName(file)), false);
+            }
+
+            foreach (string subDirectory in Directory.GetDirectories(sourceDirectory))
+            {
+                CopyDirectory(subDirectory, Path.Combine(destinationDirectory, Path.GetFileName(subDirectory)));
+            }
+        }
+
+        private void CreateNewFolder(string parentDirectory)
+        {
+            if (string.IsNullOrEmpty(parentDirectory) || !Directory.Exists(parentDirectory))
+            {
+                return;
+            }
+
+            string suggestedName = Path.GetFileName(GetAvailableName(parentDirectory, "New folder"));
+            string createdPath = null;
+
+            using (var dialog = new InputDialog("New folder", "Folder name:", suggestedName))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                string name = dialog.Value;
+
+                if (name.Length == 0)
+                {
+                    return;
+                }
+
+                try
+                {
+                    createdPath = Path.Combine(parentDirectory, name);
+
+                    if (Directory.Exists(createdPath) || File.Exists(createdPath))
+                    {
+                        MessageBox.Show(this, "An item named \"" + name + "\" already exists.", "New folder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    Directory.CreateDirectory(createdPath);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "Could not create the folder.\r\n\r\n" + ex.Message, "New folder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+
+            if (string.Equals(parentDirectory, _currentPath, StringComparison.OrdinalIgnoreCase))
+            {
+                RefreshCurrentFolder();
+            }
+
+            RefreshTreeNode(parentDirectory);
+            SelectTreeNode(createdPath);
+        }
+
+        private void RefreshTreeNode(string path)
+        {
+            TreeNode node = FindTreeNode(treeViewFolders.Nodes, path);
+
+            if (node == null)
+            {
+                return;
+            }
+
+            node.Nodes.Clear();
+            node.Nodes.Add(DummyNodeName, DummyNodeName);
+
+            if (node.IsExpanded)
+            {
+                node.Nodes.Clear();
+
+                foreach (string directory in SafeGetDirectories(path))
+                {
+                    node.Nodes.Add(CreateDirectoryNode(directory, Path.GetFileName(directory)));
+                }
+
+                if (node.Nodes.Count == 0)
+                {
+                    node.Collapse();
+                }
+            }
         }
 
         #endregion
