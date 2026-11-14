@@ -426,8 +426,10 @@ namespace FileExplorer.Dialogs
 
                 if (filter == "Differences only")
                 {
-                    if (status == "Different" || status == "Only in left" || status == "Only in right"
-                        || status == "Error" || status == "Truncated")
+                    // Only entries that exist on BOTH sides but have
+                    // different content (one-sided entries are covered by
+                    // the "Only in left" / "Only in right" filters).
+                    if (status == "Different" || status == "Error")
                     {
                         rows.Add(row);
                     }
@@ -726,7 +728,9 @@ namespace FileExplorer.Dialogs
 
             try
             {
-                TreeNode other = FindNodeByFullPath(target, node.Text);
+                // Match by FULL path, not by the node's own name, so that
+                // nested nodes map to their correct counterpart.
+                TreeNode other = FindNodeByFullPath(target, node.FullPath);
 
                 if (other != null)
                 {
@@ -742,7 +746,14 @@ namespace FileExplorer.Dialogs
 
                 if (source.TopNode != null)
                 {
-                    target.TopNode = source.TopNode;
+                    // TopNode must be a node of the TARGET tree, so map the
+                    // source's first visible node to its counterpart by path.
+                    TreeNode mapped = FindNodeByFullPath(target, source.TopNode.FullPath);
+
+                    if (mapped != null)
+                    {
+                        target.TopNode = mapped;
+                    }
                 }
             }
             finally
