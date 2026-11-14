@@ -32,6 +32,13 @@ namespace FileExplorer.Dialogs
         private List<string[]> _folderRows;
         private string _leftRoot = string.Empty;
         private string _rightRoot = string.Empty;
+        private List<DiffLine> _currentDiff;
+        private List<int> _leftLineChars;
+        private List<int> _rightLineChars;
+        private List<Point> _hunks;
+        private int _currentHunk = -1;
+        private Rectangle _highlightLeft;
+        private Rectangle _highlightRight;
 
         public CompareDialog()
             : this(null, null)
@@ -900,7 +907,9 @@ namespace FileExplorer.Dialogs
                     else
                     {
                         lblSummary.Text = Path.GetFileName(left) + " vs " + Path.GetFileName(right) + ": "
-                            + deleted + " line(s) only in left, " + inserted + " line(s) only in right.";
+                            + deleted + " line(s) only in left, " + inserted + " line(s) only in right"
+                            + (_hunks != null && _hunks.Count > 0 ? ", " + _hunks.Count + " difference block(s)" : string.Empty)
+                            + ".";
                     }
                 }));
             }
@@ -913,9 +922,23 @@ namespace FileExplorer.Dialogs
         {
             richTextBoxDiffLeft.Clear();
             richTextBoxDiffRight.Clear();
+            _currentDiff = diff;
+            _leftLineChars = new List<int>(diff.Count);
+            _rightLineChars = new List<int>(diff.Count);
+            _hunks = new List<Point>();
+            _currentHunk = -1;
+            _highlightLeft = Rectangle.Empty;
+            _highlightRight = Rectangle.Empty;
 
-            foreach (DiffLine line in diff)
+            for (int i = 0; i < diff.Count; i++)
             {
+                DiffLine line = diff[i];
+
+                // Remember the character offset of every rendered line so
+                // the marker strips and the hunk navigation can jump to it.
+                _leftLineChars.Add(richTextBoxDiffLeft.TextLength);
+                _rightLineChars.Add(richTextBoxDiffRight.TextLength);
+
                 switch (line.Operation)
                 {
                     case DiffOperation.Equal:
@@ -933,12 +956,231 @@ namespace FileExplorer.Dialogs
                         AppendDiffLine(richTextBoxDiffRight, line.RightNumber, line.Text, InsertedColor);
                         break;
                 }
+
+                // Group consecutive changed lines into difference blocks.
+                if (line.Operation != DiffOperation.Equal)
+                {
+                    if (_hunks.Count > 0 && _hunks[_hunks.Count - 1].Y == i)
+                    {
+                        Point last = _hunks[_hunks.Count - 1];
+                        last.Y = i + 1;
+                        _hunks[_hunks.Count - 1] = last;
+                    }
+                    else
+                    {
+                        _hunks.Add(new Point(i, i + 1));
+                    }
+                }
             }
+
+            UpdateDiffMarkers();
 
             richTextBoxDiffLeft.SelectionStart = 0;
             richTextBoxDiffLeft.SelectionLength = 0;
             richTextBoxDiffRight.SelectionStart = 0;
             richTextBoxDiffRight.SelectionLength = 0;
+        }
+
+        /// <summary>
+        /// Rebuilds the marker strips next to the diff boxes: one tick per
+        /// difference block, colored red on the left strip when the block
+        /// contains deleted lines and green on the right strip when it
+        /// contains inserted lines (gray when the block is one-sided).
+        /// </summary>
+        private void UpdateDiffMarkers()
+        {
+            int total = _leftLineChars != null ? _leftLineChars.Count : 0;
+
+            if (total == 0 || _hunks == null || _hunks.Count == 0)
+            {
+                markerStripLeft.ClearMarks();
+                markerStripRight.ClearMarks();
+                return;
+            }
+
+            Color neutral = MissingColor;
+            var leftMarks = new List<DiffMarkerStrip.DiffMark>(_hunks.Count);
+            var rightMarks = new List<DiffMarkerStrip.DiffMark>(_hunks.Count);
+
+            foreach (Point hunk in _hunks)
+            {
+                bool hasDelete = false;
+                bool hasInsert = false;
+
+                for (int i = hunk.X; i < hunk.Y; i++)
+                {
+                    if (_currentDiff[i].Operation == DiffOperation.Delete)
+                    {
+                        hasDelete = true;
+                    }
+                    else if (_currentDiff[i].Operation == DiffOperation.Insert)
+                    {
+                        hasInsert = true;
+                    }
+                }
+
+                leftMarks.Add(new DiffMarkerStrip.DiffMark
+                {
+                    Line = hunk.X,
+                    Color = hasDelete ? DeletedColor : neutral
+                });
+                rightMarks.Add(new DiffMarkerStrip.DiffMark
+                {
+                    Line = hunk.X,
+                    Color = hasInsert ? InsertedColor : neutral
+                });
+            }
+
+            markerStripLeft.SetMarks(leftMarks, total);
+            markerStripRight.SetMarks(rightMarks, total);
+        }
+
+        private void MarkerStrip_Jump(object sender, DiffMarkerStrip.MarkerJumpEventArgs e)
+        {
+            if (_hunks == null || _hunks.Count == 0)
+            {
+                return;
+            }
+
+            // Find the difference block at (or nearest after) the clicked line.
+            int hunkIndex = 0;
+
+            for (int i = 0; i < _hunks.Count; i++)
+            {
+                if (_hunks[i].Y > e.Line)
+                {
+                    hunkIndex = i;
+                    break;
+                }
+
+                hunkIndex = i;
+            }
+
+            GoToHunk(hunkIndex);
+        }
+
+        private void BtnNextDiff_Click(object sender, EventArgs e)
+        {
+            if (_hunks == null || _hunks.Count == 0)
+            {
+                return;
+            }
+
+            GoToHunk(_currentHunk + 1);
+        }
+
+        private void BtnPrevDiff_Click(object sender, EventArgs e)
+        {
+            if (_hunks == null || _hunks.Count == 0)
+            {
+                return;
+            }
+
+            GoToHunk(_currentHunk < 0 ? _hunks.Count - 1 : _currentHunk - 1);
+        }
+
+        /// <summary>Scrolls to the given difference block (wrapping around), highlights it and updates the summary.</summary>
+        private void GoToHunk(int index)
+        {
+            if (_hunks == null || _hunks.Count == 0)
+            {
+                return;
+            }
+
+            int count = _hunks.Count;
+            index = ((index % count) + count) % count;
+            _currentHunk = index;
+
+            Point hunk = _hunks[index];
+
+            HighlightHunk(hunk);
+
+            int line = Math.Min(hunk.X, _leftLineChars.Count - 1);
+
+            ScrollDiffBoxTo(richTextBoxDiffLeft, _leftLineChars[line]);
+            ScrollDiffBoxTo(richTextBoxDiffRight, _rightLineChars[line]);
+
+            lblSummary.Text = "Difference " + (index + 1) + " of " + count
+                + "  (line " + RenderedToOriginalLine(hunk.X) + ")";
+        }
+
+        /// <summary>Maps a rendered line index to the 1-based original line number of the change.</summary>
+        private int RenderedToOriginalLine(int renderedIndex)
+        {
+            for (int i = Math.Min(renderedIndex, _currentDiff.Count - 1); i >= 0; i--)
+            {
+                DiffLine line = _currentDiff[i];
+
+                if (line.Operation == DiffOperation.Delete && line.LeftNumber > 0)
+                {
+                    return line.LeftNumber;
+                }
+
+                if (line.Operation == DiffOperation.Insert && line.RightNumber > 0)
+                {
+                    return line.RightNumber;
+                }
+            }
+
+            return 0;
+        }
+
+        private void HighlightHunk(Point hunk)
+        {
+            ClearHunkHighlight(richTextBoxDiffLeft, _highlightLeft);
+            ClearHunkHighlight(richTextBoxDiffRight, _highlightRight);
+
+            _highlightLeft = HighlightLines(richTextBoxDiffLeft, hunk.X, hunk.Y, _leftLineChars);
+            _highlightRight = HighlightLines(richTextBoxDiffRight, hunk.X, hunk.Y, _rightLineChars);
+        }
+
+        private static Rectangle HighlightLines(RichTextBox box, int firstLine, int endLine, List<int> lineChars)
+        {
+            if (box.TextLength == 0 || firstLine >= lineChars.Count)
+            {
+                return Rectangle.Empty;
+            }
+
+            int start = lineChars[firstLine];
+            int end = endLine < lineChars.Count ? lineChars[endLine] : box.TextLength;
+
+            if (end <= start)
+            {
+                end = Math.Min(start + 1, box.TextLength);
+            }
+
+            box.SelectionStart = start;
+            box.SelectionLength = end - start;
+            box.SelectionBackColor = DifferenceHighlight;
+
+            return new Rectangle(start, firstLine, end - start, endLine - firstLine);
+        }
+
+        private static void ClearHunkHighlight(RichTextBox box, Rectangle highlight)
+        {
+            if (highlight.IsEmpty || box.TextLength == 0)
+            {
+                return;
+            }
+
+            int start = Math.Min(highlight.X, box.TextLength);
+            int length = Math.Min(highlight.Width, box.TextLength - start);
+
+            box.SelectionStart = start;
+            box.SelectionLength = length;
+            box.SelectionBackColor = box.BackColor;
+        }
+
+        private static void ScrollDiffBoxTo(RichTextBox box, int charIndex)
+        {
+            if (charIndex < 0 || charIndex >= box.TextLength)
+            {
+                charIndex = Math.Max(0, box.TextLength - 1);
+            }
+
+            box.SelectionStart = charIndex;
+            box.SelectionLength = 0;
+            box.ScrollToCaret();
         }
 
         private void AppendDiffLine(RichTextBox box, int lineNumber, string text, Color color)

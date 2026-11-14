@@ -32,6 +32,10 @@ namespace FileExplorer.Dialogs
             this.richTextBoxDiffLeft = new System.Windows.Forms.RichTextBox();
             this.labelDiffRight = new System.Windows.Forms.Label();
             this.richTextBoxDiffRight = new System.Windows.Forms.RichTextBox();
+            this.markerStripLeft = new FileExplorer.Controls.DiffMarkerStrip();
+            this.markerStripRight = new FileExplorer.Controls.DiffMarkerStrip();
+            this.btnPrevDiff = new System.Windows.Forms.Button();
+            this.btnNextDiff = new System.Windows.Forms.Button();
             this.panelHex = new System.Windows.Forms.Panel();
             this.splitContainerHex = new System.Windows.Forms.SplitContainer();
             this.labelHexLeft = new System.Windows.Forms.Label();
@@ -143,14 +147,14 @@ namespace FileExplorer.Dialogs
             this.lblSummary.AutoEllipsis = true;
             this.lblSummary.Location = new System.Drawing.Point(12, 69);
             this.lblSummary.Name = "lblSummary";
-            this.lblSummary.Size = new System.Drawing.Size(350, 18);
+            this.lblSummary.Size = new System.Drawing.Size(280, 18);
             this.lblSummary.TabIndex = 8;
             this.lblSummary.Text = "Choose two files or two folders and click Compare.";
             //
             // labelFilter
             //
             this.labelFilter.AutoSize = true;
-            this.labelFilter.Location = new System.Drawing.Point(368, 69);
+            this.labelFilter.Location = new System.Drawing.Point(300, 69);
             this.labelFilter.Name = "labelFilter";
             this.labelFilter.Size = new System.Drawing.Size(37, 13);
             this.labelFilter.TabIndex = 12;
@@ -165,7 +169,7 @@ namespace FileExplorer.Dialogs
             "Differences only",
             "Only in left",
             "Only in right"});
-            this.comboBoxFilter.Location = new System.Drawing.Point(410, 66);
+            this.comboBoxFilter.Location = new System.Drawing.Point(342, 66);
             this.comboBoxFilter.Name = "comboBoxFilter";
             this.comboBoxFilter.Size = new System.Drawing.Size(125, 21);
             this.comboBoxFilter.TabIndex = 13;
@@ -176,7 +180,7 @@ namespace FileExplorer.Dialogs
             // btnBack
             //
             this.btnBack.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnBack.Location = new System.Drawing.Point(560, 63);
+            this.btnBack.Location = new System.Drawing.Point(515, 63);
             this.btnBack.Name = "btnBack";
             this.btnBack.Size = new System.Drawing.Size(100, 26);
             this.btnBack.TabIndex = 14;
@@ -184,6 +188,28 @@ namespace FileExplorer.Dialogs
             this.btnBack.UseVisualStyleBackColor = true;
             this.btnBack.Visible = false;
             this.btnBack.Click += new System.EventHandler(this.BtnBack_Click);
+            //
+            // btnPrevDiff
+            //
+            this.btnPrevDiff.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnPrevDiff.Location = new System.Drawing.Point(623, 63);
+            this.btnPrevDiff.Name = "btnPrevDiff";
+            this.btnPrevDiff.Size = new System.Drawing.Size(30, 26);
+            this.btnPrevDiff.TabIndex = 15;
+            this.btnPrevDiff.Text = "<";
+            this.btnPrevDiff.UseVisualStyleBackColor = true;
+            this.btnPrevDiff.Click += new System.EventHandler(this.BtnPrevDiff_Click);
+            //
+            // btnNextDiff
+            //
+            this.btnNextDiff.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnNextDiff.Location = new System.Drawing.Point(655, 63);
+            this.btnNextDiff.Name = "btnNextDiff";
+            this.btnNextDiff.Size = new System.Drawing.Size(30, 26);
+            this.btnNextDiff.TabIndex = 16;
+            this.btnNextDiff.Text = ">";
+            this.btnNextDiff.UseVisualStyleBackColor = true;
+            this.btnNextDiff.Click += new System.EventHandler(this.BtnNextDiff_Click);
             //
             // splitContainerFolders
             //
@@ -268,11 +294,13 @@ namespace FileExplorer.Dialogs
             // splitContainerDiff.Panel1
             //
             this.splitContainerDiff.Panel1.Controls.Add(this.richTextBoxDiffLeft);
+            this.splitContainerDiff.Panel1.Controls.Add(this.markerStripLeft);
             this.splitContainerDiff.Panel1.Controls.Add(this.labelDiffLeft);
             //
             // splitContainerDiff.Panel2
             //
             this.splitContainerDiff.Panel2.Controls.Add(this.richTextBoxDiffRight);
+            this.splitContainerDiff.Panel2.Controls.Add(this.markerStripRight);
             this.splitContainerDiff.Panel2.Controls.Add(this.labelDiffRight);
             this.splitContainerDiff.Size = new System.Drawing.Size(814, 445);
             this.splitContainerDiff.SplitterDistance = 400;
@@ -305,6 +333,15 @@ namespace FileExplorer.Dialogs
             this.richTextBoxDiffLeft.HScroll += new System.EventHandler(this.DiffBox_Scroll);
             this.richTextBoxDiffLeft.VScroll += new System.EventHandler(this.DiffBox_Scroll);
             //
+            // markerStripLeft
+            //
+            this.markerStripLeft.Dock = System.Windows.Forms.DockStyle.Right;
+            this.markerStripLeft.Location = new System.Drawing.Point(388, 22);
+            this.markerStripLeft.Name = "markerStripLeft";
+            this.markerStripLeft.Size = new System.Drawing.Size(12, 423);
+            this.markerStripLeft.TabIndex = 2;
+            this.markerStripLeft.JumpRequested += new System.EventHandler<FileExplorer.Controls.DiffMarkerStrip.MarkerJumpEventArgs>(this.MarkerStrip_Jump);
+            //
             // labelDiffRight
             //
             this.labelDiffRight.Dock = System.Windows.Forms.DockStyle.Top;
@@ -330,6 +367,15 @@ namespace FileExplorer.Dialogs
             this.richTextBoxDiffRight.WordWrap = false;
             this.richTextBoxDiffRight.HScroll += new System.EventHandler(this.DiffBox_Scroll);
             this.richTextBoxDiffRight.VScroll += new System.EventHandler(this.DiffBox_Scroll);
+            //
+            // markerStripRight
+            //
+            this.markerStripRight.Dock = System.Windows.Forms.DockStyle.Right;
+            this.markerStripRight.Location = new System.Drawing.Point(398, 22);
+            this.markerStripRight.Name = "markerStripRight";
+            this.markerStripRight.Size = new System.Drawing.Size(12, 423);
+            this.markerStripRight.TabIndex = 2;
+            this.markerStripRight.JumpRequested += new System.EventHandler<FileExplorer.Controls.DiffMarkerStrip.MarkerJumpEventArgs>(this.MarkerStrip_Jump);
             //
             // panelHex
             //
@@ -425,6 +471,8 @@ namespace FileExplorer.Dialogs
             this.Controls.Add(this.labelFilter);
             this.Controls.Add(this.comboBoxFilter);
             this.Controls.Add(this.btnBack);
+            this.Controls.Add(this.btnPrevDiff);
+            this.Controls.Add(this.btnNextDiff);
             this.Controls.Add(this.btnCompare);
             this.Controls.Add(this.btnClose);
             this.Controls.Add(this.btnBrowseRight);
@@ -469,6 +517,10 @@ namespace FileExplorer.Dialogs
         private System.Windows.Forms.RichTextBox richTextBoxDiffLeft;
         private System.Windows.Forms.Label labelDiffRight;
         private System.Windows.Forms.RichTextBox richTextBoxDiffRight;
+        private FileExplorer.Controls.DiffMarkerStrip markerStripLeft;
+        private FileExplorer.Controls.DiffMarkerStrip markerStripRight;
+        private System.Windows.Forms.Button btnPrevDiff;
+        private System.Windows.Forms.Button btnNextDiff;
         private System.Windows.Forms.Panel panelHex;
         private System.Windows.Forms.SplitContainer splitContainerHex;
         private System.Windows.Forms.Label labelHexLeft;
