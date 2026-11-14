@@ -3,6 +3,19 @@ using System.Windows.Forms;
 
 namespace FileExplorer.Controls
 {
+    public class TreeViewScrollEventArgs : EventArgs
+    {
+        public TreeViewScrollEventArgs(int message, IntPtr wParam)
+        {
+            Message = message;
+            WParam = wParam;
+        }
+
+        public int Message { get; private set; }
+
+        public IntPtr WParam { get; private set; }
+    }
+
     /// <summary>
     /// A TreeView that raises an event whenever the view is scrolled, so two
     /// tree views can be kept in synchronized scrolling.
@@ -14,7 +27,7 @@ namespace FileExplorer.Controls
         private const int WmMouseWheel = 0x020A;
         private const int WmMouseHWheel = 0x020E;
 
-        public event EventHandler ScrollMoved;
+        public event EventHandler<TreeViewScrollEventArgs> ScrollMoved;
 
         protected override void WndProc(ref Message m)
         {
@@ -23,13 +36,13 @@ namespace FileExplorer.Controls
             if (m.Msg == WmVScroll || m.Msg == WmHScroll
                 || m.Msg == WmMouseWheel || m.Msg == WmMouseHWheel)
             {
-                OnScrollMoved(EventArgs.Empty);
+                OnScrollMoved(new TreeViewScrollEventArgs(m.Msg, m.WParam));
             }
         }
 
-        protected virtual void OnScrollMoved(EventArgs e)
+        protected virtual void OnScrollMoved(TreeViewScrollEventArgs e)
         {
-            EventHandler handler = ScrollMoved;
+            var handler = ScrollMoved;
 
             if (handler != null)
             {

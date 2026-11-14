@@ -92,10 +92,10 @@ namespace FileExplorer.Services
 
     public static class PeBrowserService
     {
-        private const int MaxImportsPerDll = 512;
-        private const int MaxImportDlls = 256;
-        private const int MaxExportNames = 2048;
-        private const int MaxMetadataScanBytes = 8 * 1024 * 1024;
+        private const int MaxImportsPerDll = int.MaxValue;
+        private const int MaxImportDlls = int.MaxValue;
+        private const int MaxExportNames = int.MaxValue;
+        private const int MaxMetadataScanBytes = 64 * 1024 * 1024;
 
         private static readonly Dictionary<ushort, string> MachineNames = new Dictionary<ushort, string>
         {

@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using FileExplorer.Controls;
 using FileExplorer.Services;
 
 namespace FileExplorer.Dialogs
@@ -29,6 +30,8 @@ namespace FileExplorer.Dialogs
         private bool _syncingScroll;
         private bool _syncingTree;
         private List<string[]> _folderRows;
+        private string _leftRoot = string.Empty;
+        private string _rightRoot = string.Empty;
 
         public CompareDialog()
             : this(null, null)
@@ -120,7 +123,7 @@ namespace FileExplorer.Dialogs
             if (_folderRows != null)
             {
                 btnBack.Visible = false;
-                ShowOnly(tabControlResults);
+                ShowOnly(splitContainerFolders);
             }
         }
 
@@ -151,7 +154,7 @@ namespace FileExplorer.Dialogs
 
         private void ShowOnly(Control control)
         {
-            tabControlResults.Visible = control == tabControlResults;
+            splitContainerFolders.Visible = control == splitContainerFolders;
             splitContainerDiff.Visible = control == splitContainerDiff;
             panelHex.Visible = control == panelHex;
         }
@@ -161,12 +164,12 @@ namespace FileExplorer.Dialogs
         private void CompareFolders(string left, string right)
         {
             SetBusy(true, "Comparing folders...");
-            treeViewResults.Nodes.Clear();
-            listViewResults.Items.Clear();
             treeViewFoldersLeft.Nodes.Clear();
             treeViewFoldersRight.Nodes.Clear();
             _folderRows = null;
-            ShowOnly(tabControlResults);
+            _leftRoot = left;
+            _rightRoot = right;
+            ShowOnly(splitContainerFolders);
 
             string leftRoot = left;
             string rightRoot = right;
@@ -450,30 +453,7 @@ namespace FileExplorer.Dialogs
 
         private void RepopulateFolderViews()
         {
-            List<string[]> rows = GetFilteredRows();
-
-            BuildFolderTree(treeViewResults, rows, null);
-            PopulateFolderList(rows);
-            BuildSideBySideTrees(rows);
-        }
-
-        private void PopulateFolderList(List<string[]> rows)
-        {
-            listViewResults.BeginUpdate();
-            listViewResults.Items.Clear();
-
-            foreach (string[] row in rows)
-            {
-                var item = new ListViewItem(row[0]);
-                item.SubItems.Add(row[1]);
-                item.SubItems.Add(row[2]);
-                item.SubItems.Add(row[3]);
-                item.Tag = new[] { row.Length > 4 ? row[4] : string.Empty, row.Length > 5 ? row[5] : string.Empty };
-                item.ForeColor = StatusColor(row[0]);
-                listViewResults.Items.Add(item);
-            }
-
-            listViewResults.EndUpdate();
+            BuildSideBySideTrees(GetFilteredRows());
         }
 
         private static Color StatusColor(string status)
@@ -618,6 +598,9 @@ namespace FileExplorer.Dialogs
 
         private void BuildSideBySideTrees(List<string[]> rows)
         {
+            labelFoldersLeft.Text = _leftRoot;
+            labelFoldersRight.Text = _rightRoot;
+
             BuildFolderTree(treeViewFoldersLeft, rows, "left");
             BuildFolderTree(treeViewFoldersRight, rows, "right");
 
@@ -646,7 +629,7 @@ namespace FileExplorer.Dialogs
             }
         }
 
-        private void TreeViewResults_DoubleClick(object sender, EventArgs e)
+        private void FolderTree_DoubleClick(object sender, EventArgs e)
         {
             OpenFromTree(sender as TreeView);
         }
@@ -657,16 +640,6 @@ namespace FileExplorer.Dialogs
             {
                 OpenCompareFromPaths(tree.SelectedNode == null ? null : tree.SelectedNode.Tag as string[]);
             }
-        }
-
-        private void ListViewResults_DoubleClick(object sender, EventArgs e)
-        {
-            if (listViewResults.SelectedItems.Count == 0)
-            {
-                return;
-            }
-
-            OpenCompareFromPaths(listViewResults.SelectedItems[0].Tag as string[]);
         }
 
         private void OpenCompareFromPaths(string[] paths)
@@ -688,7 +661,7 @@ namespace FileExplorer.Dialogs
 
         #region Side-by-side tree synchronization
 
-        private void FolderTree_Scrolled(object sender, EventArgs e)
+        private void FolderTree_Scrolled(object sender, TreeViewScrollEventArgs e)
         {
             if (_syncingScroll)
             {
@@ -708,7 +681,11 @@ namespace FileExplorer.Dialogs
 
             try
             {
-                if (source.TopNode != null)
+                if (e.Message == WmHScroll || e.Message == WmMouseHWheel)
+                {
+                    SendMessage(target.Handle, WmHScroll, e.WParam, IntPtr.Zero);
+                }
+                else if (source.TopNode != null)
                 {
                     target.TopNode = source.TopNode;
                 }
@@ -869,7 +846,7 @@ namespace FileExplorer.Dialogs
         {
             string[] leftLines = SplitLines(leftBytes);
             string[] rightLines = SplitLines(rightBytes);
-            List<DiffLine> diff = DiffService.Diff(leftLines, rightLines);
+            List<DiffLine> diff = DiffService.Diff(leftLines, rightLines, true);
 
             try
             {
@@ -1103,11 +1080,16 @@ namespace FileExplorer.Dialogs
         }
 
         private const int WmUser = 0x0400;
+        private const int WmHScroll = 0x0114;
+        private const int WmMouseHWheel = 0x020E;
         private const int EmGetScrollPos = WmUser + 221;
         private const int EmSetScrollPos = WmUser + 222;
 
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, ref Point lParam);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
         #endregion
 

@@ -24,7 +24,7 @@ namespace FileExplorer.Services
     {
         private const int MaxDiffLines = 5000;
 
-        public static List<DiffLine> Diff(string[] leftLines, string[] rightLines)
+        public static List<DiffLine> Diff(string[] leftLines, string[] rightLines, bool ignoreWhitespace = false)
         {
             var result = new List<DiffLine>();
 
@@ -38,19 +38,31 @@ namespace FileExplorer.Services
                 rightLines = new string[0];
             }
 
+            // When whitespace is ignored, comparisons run against normalized keys
+            // (trimmed, internal whitespace collapsed) while the original text is
+            // still displayed.
+            string[] leftKeys = leftLines;
+            string[] rightKeys = rightLines;
+
+            if (ignoreWhitespace)
+            {
+                leftKeys = NormalizeLines(leftLines);
+                rightKeys = NormalizeLines(rightLines);
+            }
+
             int start = 0;
             int leftEnd = leftLines.Length;
             int rightEnd = rightLines.Length;
 
             // Trim common prefix and suffix so the LCS table stays small.
             while (start < leftEnd && start < rightEnd
-                && string.Equals(leftLines[start], rightLines[start], StringComparison.Ordinal))
+                && string.Equals(leftKeys[start], rightKeys[start], StringComparison.Ordinal))
             {
                 start++;
             }
 
             while (leftEnd > start && rightEnd > start
-                && string.Equals(leftLines[leftEnd - 1], rightLines[rightEnd - 1], StringComparison.Ordinal))
+                && string.Equals(leftKeys[leftEnd - 1], rightKeys[rightEnd - 1], StringComparison.Ordinal))
             {
                 leftEnd--;
                 rightEnd--;
@@ -84,8 +96,8 @@ namespace FileExplorer.Services
             }
             else
             {
-                int[,] table = BuildLcsTable(leftLines, rightLines, start, leftEnd, rightEnd);
-                EmitDiff(result, table, leftLines, rightLines, start, leftEnd, rightEnd);
+                int[,] table = BuildLcsTable(leftKeys, rightKeys, start, leftEnd, rightEnd);
+                EmitDiff(result, table, leftKeys, rightKeys, leftLines, rightLines, start, leftEnd, rightEnd);
             }
 
             // Append the common suffix.
@@ -135,6 +147,8 @@ namespace FileExplorer.Services
         private static void EmitDiff(
             List<DiffLine> result,
             int[,] table,
+            string[] leftKeys,
+            string[] rightKeys,
             string[] left,
             string[] right,
             int start,
@@ -148,7 +162,7 @@ namespace FileExplorer.Services
 
             while (i < rows && j < columns)
             {
-                if (string.Equals(left[start + i], right[start + j], StringComparison.Ordinal))
+                if (string.Equals(leftKeys[start + i], rightKeys[start + j], StringComparison.Ordinal))
                 {
                     result.Add(MakeLine(DiffOperation.Equal, left[start + i], start + i + 1, start + j + 1));
                     i++;
@@ -177,6 +191,28 @@ namespace FileExplorer.Services
                 result.Add(MakeLine(DiffOperation.Insert, right[start + j], 0, start + j + 1));
                 j++;
             }
+        }
+
+        public static string NormalizeWhitespace(string line)
+        {
+            if (line == null)
+            {
+                return string.Empty;
+            }
+
+            return string.Join(" ", line.Split((char[])null, StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        private static string[] NormalizeLines(string[] lines)
+        {
+            var keys = new string[lines.Length];
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                keys[i] = NormalizeWhitespace(lines[i]);
+            }
+
+            return keys;
         }
 
         public static bool LooksBinary(byte[] data, int length)

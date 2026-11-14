@@ -1022,6 +1022,20 @@ namespace FileExplorer
             contextFolderPasteToolStripMenuItem.Enabled = hasPath && Clipboard.ContainsFileDropList();
             contextFolderNewFolderToolStripMenuItem.Enabled = hasPath;
             contextFolderRenameToolStripMenuItem.Enabled = hasPath;
+            contextFolderCompareToolStripMenuItem.Enabled = hasPath;
+        }
+
+        private void ContextFolderCompareToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
+            {
+                using (var dialog = new CompareDialog(path, null))
+                {
+                    dialog.ShowDialog(this);
+                }
+            }
         }
 
         private void ContextFolderOpenToolStripMenuItem_Click(object sender, EventArgs e)

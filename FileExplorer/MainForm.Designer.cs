@@ -88,6 +88,8 @@ namespace FileExplorer
             this.contextNewFolderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.contextRenameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.contextMenuStripFolders = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.contextFolderCompareToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator16 = new System.Windows.Forms.ToolStripSeparator();
             this.contextFolderOpenToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator12 = new System.Windows.Forms.ToolStripSeparator();
             this.contextFolderCopyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -757,7 +759,9 @@ namespace FileExplorer
             this.contextFolderNewFolderToolStripMenuItem,
             this.contextFolderRenameToolStripMenuItem,
             this.toolStripSeparator13,
-            this.contextFolderRefreshToolStripMenuItem});
+            this.contextFolderRefreshToolStripMenuItem,
+            this.toolStripSeparator16,
+            this.contextFolderCompareToolStripMenuItem});
             this.contextMenuStripFolders.Name = "contextMenuStripFolders";
             this.contextMenuStripFolders.Size = new System.Drawing.Size(181, 210);
             this.contextMenuStripFolders.Opening += new System.ComponentModel.CancelEventHandler(this.ContextMenuStripFolders_Opening);
@@ -820,6 +824,19 @@ namespace FileExplorer
             this.contextFolderRefreshToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.contextFolderRefreshToolStripMenuItem.Text = "Re&fresh";
             this.contextFolderRefreshToolStripMenuItem.Click += new System.EventHandler(this.ContextFolderRefreshToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator16
+            // 
+            this.toolStripSeparator16.Name = "toolStripSeparator16";
+            this.toolStripSeparator16.Size = new System.Drawing.Size(177, 6);
+            // 
+            // contextFolderCompareToolStripMenuItem
+            // 
+            this.contextFolderCompareToolStripMenuItem.Enabled = false;
+            this.contextFolderCompareToolStripMenuItem.Name = "contextFolderCompareToolStripMenuItem";
+            this.contextFolderCompareToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextFolderCompareToolStripMenuItem.Text = "Co&mpare with...";
+            this.contextFolderCompareToolStripMenuItem.Click += new System.EventHandler(this.ContextFolderCompareToolStripMenuItem_Click);
             // 
             // MainForm
             // 
@@ -933,6 +950,8 @@ namespace FileExplorer
         private System.Windows.Forms.ToolStripMenuItem contextFolderRenameToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator13;
         private System.Windows.Forms.ToolStripMenuItem contextFolderRefreshToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator16;
+        private System.Windows.Forms.ToolStripMenuItem contextFolderCompareToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem searchToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem compareToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem previewPositionToolStripMenuItem;

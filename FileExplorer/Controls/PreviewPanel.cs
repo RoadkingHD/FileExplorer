@@ -19,9 +19,8 @@ namespace FileExplorer.Controls
 {
     public partial class PreviewPanel : UserControl
     {
-        private const long MaxPreviewBytes = 2 * 1024 * 1024;
         private const long MaxOfficePreviewBytes = 20 * 1024 * 1024;
-        private const int MaxTreeNodes = 10000;
+        private const int MaxTreeNodes = int.MaxValue;
 
         private static readonly Color KeyColor = Color.FromArgb(163, 21, 21);
         private static readonly Color StringColor = Color.FromArgb(0, 128, 0);
@@ -136,12 +135,6 @@ namespace FileExplorer.Controls
                 if (IsBinary(path))
                 {
                     ShowMessage("Binary file. Preview is not available.");
-                    return;
-                }
-
-                if (info.Length > MaxPreviewBytes)
-                {
-                    ShowMessage("File is too large to preview (limit is 2 MB).");
                     return;
                 }
 
@@ -857,7 +850,7 @@ namespace FileExplorer.Controls
 
         #region Zip archive browser
 
-        private const int MaxZipEntries = 20000;
+        private const int MaxZipEntries = int.MaxValue;
 
         private sealed class ZipEntryInfo
         {
