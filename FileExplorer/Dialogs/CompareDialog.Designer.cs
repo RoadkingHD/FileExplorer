@@ -170,7 +170,8 @@ namespace FileExplorer.Dialogs
             this.comboBoxFilter.Size = new System.Drawing.Size(125, 21);
             this.comboBoxFilter.TabIndex = 13;
             this.comboBoxFilter.SelectedIndexChanged += new System.EventHandler(this.ComboBoxFilter_SelectedIndexChanged);
-            this.comboBoxFilter.SelectedIndex = 0;
+            // Default to "Differences only" (index 1 = "All" is index 0).
+            this.comboBoxFilter.SelectedIndex = 1;
             //
             // btnBack
             //
