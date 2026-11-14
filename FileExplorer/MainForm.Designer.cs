@@ -76,6 +76,7 @@ namespace FileExplorer
             this.contextExtractHereToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator9 = new System.Windows.Forms.ToolStripSeparator();
             this.contextCustomActionsMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextCompareToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator10 = new System.Windows.Forms.ToolStripSeparator();
             this.contextCopyPathToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.contextDeleteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -618,6 +619,7 @@ namespace FileExplorer
             this.toolStripSeparator9,
             this.contextCustomActionsMenuItem,
             this.toolStripSeparator10,
+            this.contextCompareToolStripMenuItem,
             this.contextCopyPathToolStripMenuItem,
             this.contextDeleteToolStripMenuItem,
             this.toolStripSeparator11,
@@ -709,6 +711,14 @@ namespace FileExplorer
             // 
             this.toolStripSeparator10.Name = "toolStripSeparator10";
             this.toolStripSeparator10.Size = new System.Drawing.Size(177, 6);
+            // 
+            // contextCompareToolStripMenuItem
+            // 
+            this.contextCompareToolStripMenuItem.Enabled = false;
+            this.contextCompareToolStripMenuItem.Name = "contextCompareToolStripMenuItem";
+            this.contextCompareToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextCompareToolStripMenuItem.Text = "Co&mpare...";
+            this.contextCompareToolStripMenuItem.Click += new System.EventHandler(this.ContextCompareToolStripMenuItem_Click);
             // 
             // contextCopyPathToolStripMenuItem
             // 
@@ -902,6 +912,7 @@ namespace FileExplorer
         private System.Windows.Forms.ToolStripMenuItem contextExtractHereToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator9;
         private System.Windows.Forms.ToolStripMenuItem contextCustomActionsMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem contextCompareToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator10;
         private System.Windows.Forms.ToolStripMenuItem contextCopyPathToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem contextDeleteToolStripMenuItem;

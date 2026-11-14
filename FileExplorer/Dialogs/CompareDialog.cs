@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -19,8 +20,12 @@ namespace FileExplorer.Dialogs
         private static readonly Color DeletedColor = Color.FromArgb(180, 0, 0);
         private static readonly Color InsertedColor = Color.FromArgb(0, 128, 0);
         private static readonly Color DifferenceHighlight = Color.FromArgb(255, 224, 192);
+        private static readonly Color FolderDifferentColor = Color.Firebrick;
+        private static readonly Color FolderOnlyColor = Color.DarkGoldenrod;
+        private static readonly Color FolderSameColor = Color.Gray;
 
         private bool _comparing;
+        private bool _syncingScroll;
 
         public CompareDialog()
             : this(null, null)
@@ -132,16 +137,19 @@ namespace FileExplorer.Dialogs
 
         private void ShowOnly(Control control)
         {
-            listViewResults.Visible = control == listViewResults;
-            richTextBoxDiff.Visible = control == richTextBoxDiff;
+            tabControlResults.Visible = control == tabControlResults;
+            splitContainerDiff.Visible = control == splitContainerDiff;
             panelHex.Visible = control == panelHex;
         }
+
+        #region Folder comparison
 
         private void CompareFolders(string left, string right)
         {
             SetBusy(true, "Comparing folders...");
+            treeViewResults.Nodes.Clear();
             listViewResults.Items.Clear();
-            ShowOnly(listViewResults);
+            ShowOnly(tabControlResults);
 
             string leftRoot = left;
             string rightRoot = right;
@@ -314,6 +322,8 @@ namespace FileExplorer.Dialogs
 
         private void PopulateFolderResults(List<string[]> rows)
         {
+            BuildFolderTree(rows);
+
             listViewResults.BeginUpdate();
 
             foreach (string[] row in rows)
@@ -323,25 +333,176 @@ namespace FileExplorer.Dialogs
                 item.SubItems.Add(row[2]);
                 item.SubItems.Add(row[3]);
                 item.Tag = new[] { row.Length > 4 ? row[4] : string.Empty, row.Length > 5 ? row[5] : string.Empty };
-
-                switch (row[0])
-                {
-                    case "Different":
-                        item.ForeColor = Color.Firebrick;
-                        break;
-                    case "Only in left":
-                    case "Only in right":
-                        item.ForeColor = Color.DarkGoldenrod;
-                        break;
-                    case "Same":
-                        item.ForeColor = Color.Gray;
-                        break;
-                }
-
+                item.ForeColor = StatusColor(row[0]);
                 listViewResults.Items.Add(item);
             }
 
             listViewResults.EndUpdate();
+        }
+
+        private static Color StatusColor(string status)
+        {
+            switch (status)
+            {
+                case "Different":
+                    return FolderDifferentColor;
+                case "Only in left":
+                case "Only in right":
+                    return FolderOnlyColor;
+                case "Same":
+                    return FolderSameColor;
+                default:
+                    return SystemColors.WindowText;
+            }
+        }
+
+        private void BuildFolderTree(List<string[]> rows)
+        {
+            treeViewResults.BeginUpdate();
+            treeViewResults.Nodes.Clear();
+
+            var directoryNodes = new Dictionary<string, TreeNode>(StringComparer.OrdinalIgnoreCase);
+            var directoryStatus = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (string[] row in rows)
+            {
+                string relativePath = row[1];
+                bool isDirectory = relativePath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal);
+                string[] parts = relativePath.TrimEnd(Path.DirectorySeparatorChar)
+                    .Split(new[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length == 0)
+                {
+                    continue;
+                }
+
+                TreeNodeCollection currentNodes = treeViewResults.Nodes;
+                TreeNode currentNode = null;
+                string builtPath = string.Empty;
+
+                for (int i = 0; i < parts.Length - 1; i++)
+                {
+                    builtPath = builtPath.Length == 0
+                        ? parts[i]
+                        : builtPath + Path.DirectorySeparatorChar + parts[i];
+
+                    TreeNode directoryNode;
+
+                    if (!directoryNodes.TryGetValue(builtPath, out directoryNode))
+                    {
+                        directoryNode = new TreeNode(parts[i]);
+                        directoryNodes[builtPath] = directoryNode;
+                        directoryStatus[builtPath] = 0;
+                        currentNodes.Add(directoryNode);
+                    }
+
+                    currentNode = directoryNode;
+                    currentNodes = directoryNode.Nodes;
+                }
+
+                string name = parts[parts.Length - 1];
+                var leaf = new TreeNode(name);
+                leaf.ForeColor = StatusColor(row[0]);
+                leaf.Tag = new[] { row.Length > 4 ? row[4] : string.Empty, row.Length > 5 ? row[5] : string.Empty };
+                currentNodes.Add(leaf);
+
+                // Propagate the worst status up the directory chain.
+                int severity = StatusSeverity(row[0]);
+
+                if (severity > 0)
+                {
+                    string path = builtPath;
+
+                    while (path.Length > 0)
+                    {
+                        int existing;
+
+                        if (!directoryStatus.TryGetValue(path, out existing) || severity > existing)
+                        {
+                            directoryStatus[path] = severity;
+                        }
+
+                        int separatorIndex = path.LastIndexOf(Path.DirectorySeparatorChar);
+                        path = separatorIndex >= 0 ? path.Substring(0, separatorIndex) : string.Empty;
+                    }
+                }
+            }
+
+            foreach (KeyValuePair<string, TreeNode> pair in directoryNodes)
+            {
+                int severity;
+
+                if (directoryStatus.TryGetValue(pair.Key, out severity))
+                {
+                    if (severity == 2)
+                    {
+                        pair.Value.ForeColor = FolderDifferentColor;
+                    }
+                    else if (severity == 1)
+                    {
+                        pair.Value.ForeColor = FolderOnlyColor;
+                    }
+                    else
+                    {
+                        pair.Value.ForeColor = FolderSameColor;
+                    }
+                }
+            }
+
+            treeViewResults.EndUpdate();
+        }
+
+        private static int StatusSeverity(string status)
+        {
+            switch (status)
+            {
+                case "Different":
+                    return 2;
+                case "Only in left":
+                case "Only in right":
+                    return 1;
+                default:
+                    return 0;
+            }
+        }
+
+        private void TreeViewResults_DoubleClick(object sender, EventArgs e)
+        {
+            OpenCompareFromTag(treeViewResults.SelectedNode);
+        }
+
+        private void ListViewResults_DoubleClick(object sender, EventArgs e)
+        {
+            if (listViewResults.SelectedItems.Count == 0)
+            {
+                return;
+            }
+
+            OpenCompareFromPaths(listViewResults.SelectedItems[0].Tag as string[]);
+        }
+
+        private void OpenCompareFromTag(TreeNode node)
+        {
+            if (node != null)
+            {
+                OpenCompareFromPaths(node.Tag as string[]);
+            }
+        }
+
+        private void OpenCompareFromPaths(string[] paths)
+        {
+            if (paths == null || paths.Length < 2)
+            {
+                return;
+            }
+
+            if (paths[0].Length > 0 && paths[1].Length > 0
+                && File.Exists(paths[0]) && File.Exists(paths[1]))
+            {
+                textBoxLeft.Text = paths[0];
+                textBoxRight.Text = paths[1];
+                CompareFiles(paths[0], paths[1]);
+            }
         }
 
         private void CollectEntries(
@@ -399,6 +560,10 @@ namespace FileExplorer.Dialogs
             }
         }
 
+        #endregion
+
+        #region File comparison
+
         private void CompareFiles(string left, string right)
         {
             SetBusy(true, "Comparing files...");
@@ -416,8 +581,9 @@ namespace FileExplorer.Dialogs
                         BeginInvoke((MethodInvoker)(() =>
                         {
                             SetBusy(false, null);
-                            ShowOnly(richTextBoxDiff);
-                            richTextBoxDiff.Text = "Cannot compare files.\r\n\r\n" + ex.Message;
+                            ShowOnly(splitContainerDiff);
+                            richTextBoxDiffLeft.Text = "Cannot compare files.\r\n\r\n" + ex.Message;
+                            richTextBoxDiffRight.Text = string.Empty;
                         }));
                     }
                     catch (InvalidOperationException)
@@ -459,9 +625,37 @@ namespace FileExplorer.Dialogs
                 BeginInvoke((MethodInvoker)(() =>
                 {
                     SetBusy(false, null);
-                    ShowOnly(richTextBoxDiff);
-                    RenderTextDiff(diff);
-                    lblSummary.Text = BuildTextSummary(left, right, leftLines.Length, rightLines.Length, diff);
+                    ShowOnly(splitContainerDiff);
+
+                    labelDiffLeft.Text = Path.GetFileName(left) + "  (" + leftLines.Length + " lines)";
+                    labelDiffRight.Text = Path.GetFileName(right) + "  (" + rightLines.Length + " lines)";
+
+                    RenderSideBySideDiff(diff);
+
+                    int deleted = 0;
+                    int inserted = 0;
+
+                    foreach (DiffLine line in diff)
+                    {
+                        if (line.Operation == DiffOperation.Delete)
+                        {
+                            deleted++;
+                        }
+                        else if (line.Operation == DiffOperation.Insert)
+                        {
+                            inserted++;
+                        }
+                    }
+
+                    if (deleted == 0 && inserted == 0)
+                    {
+                        lblSummary.Text = "The text files are identical (" + leftLines.Length + " lines each).";
+                    }
+                    else
+                    {
+                        lblSummary.Text = Path.GetFileName(left) + " vs " + Path.GetFileName(right) + ": "
+                            + deleted + " line(s) only in left, " + inserted + " line(s) only in right.";
+                    }
                 }));
             }
             catch (InvalidOperationException)
@@ -469,77 +663,51 @@ namespace FileExplorer.Dialogs
             }
         }
 
-        private string BuildTextSummary(
-            string left,
-            string right,
-            int leftLines,
-            int rightLines,
-            List<DiffLine> diff)
+        private void RenderSideBySideDiff(List<DiffLine> diff)
         {
-            int deleted = 0;
-            int inserted = 0;
+            richTextBoxDiffLeft.Clear();
+            richTextBoxDiffRight.Clear();
 
             foreach (DiffLine line in diff)
             {
-                if (line.Operation == DiffOperation.Delete)
-                {
-                    deleted++;
-                }
-                else if (line.Operation == DiffOperation.Insert)
-                {
-                    inserted++;
-                }
-            }
-
-            if (deleted == 0 && inserted == 0)
-            {
-                return "The text files are identical (" + leftLines + " lines each).";
-            }
-
-            return Path.GetFileName(left) + " (" + leftLines + " lines) vs "
-                + Path.GetFileName(right) + " (" + rightLines + " lines): "
-                + deleted + " line(s) only in left, " + inserted + " line(s) only in right.";
-        }
-
-        private void RenderTextDiff(List<DiffLine> diff)
-        {
-            richTextBoxDiff.Clear();
-
-            foreach (DiffLine line in diff)
-            {
-                string prefix;
-                Color color;
-
                 switch (line.Operation)
                 {
+                    case DiffOperation.Equal:
+                        AppendDiffLine(richTextBoxDiffLeft, line.LeftNumber, line.Text, EqualColor);
+                        AppendDiffLine(richTextBoxDiffRight, line.RightNumber, line.Text, EqualColor);
+                        break;
+
                     case DiffOperation.Delete:
-                        prefix = "- ";
-                        color = DeletedColor;
+                        AppendDiffLine(richTextBoxDiffLeft, line.LeftNumber, line.Text, DeletedColor);
+                        AppendDiffLine(richTextBoxDiffRight, 0, string.Empty, EqualColor);
                         break;
+
                     case DiffOperation.Insert:
-                        prefix = "+ ";
-                        color = InsertedColor;
-                        break;
-                    default:
-                        prefix = "  ";
-                        color = EqualColor;
+                        AppendDiffLine(richTextBoxDiffLeft, 0, string.Empty, EqualColor);
+                        AppendDiffLine(richTextBoxDiffRight, line.RightNumber, line.Text, InsertedColor);
                         break;
                 }
-
-                AppendDiffText(prefix, color);
-                AppendDiffText(line.Text + "\r\n", color);
             }
 
-            richTextBoxDiff.SelectionStart = 0;
-            richTextBoxDiff.SelectionLength = 0;
+            richTextBoxDiffLeft.SelectionStart = 0;
+            richTextBoxDiffLeft.SelectionLength = 0;
+            richTextBoxDiffRight.SelectionStart = 0;
+            richTextBoxDiffRight.SelectionLength = 0;
         }
 
-        private void AppendDiffText(string text, Color color)
+        private void AppendDiffLine(RichTextBox box, int lineNumber, string text, Color color)
         {
-            richTextBoxDiff.SelectionStart = richTextBoxDiff.TextLength;
-            richTextBoxDiff.SelectionLength = 0;
-            richTextBoxDiff.SelectionColor = color;
-            richTextBoxDiff.AppendText(text);
+            string number = lineNumber > 0 ? lineNumber.ToString() : string.Empty;
+
+            box.SelectionStart = box.TextLength;
+            box.SelectionLength = 0;
+            box.SelectionColor = Color.FromArgb(128, 128, 128);
+            box.AppendText(number.PadLeft(5) + " | ");
+
+            box.SelectionStart = box.TextLength;
+            box.SelectionLength = 0;
+            box.SelectionColor = color;
+            box.AppendText(text + "\r\n");
         }
 
         private void ShowBinaryComparison(string left, string right, byte[] leftBytes, byte[] rightBytes)
@@ -601,7 +769,6 @@ namespace FileExplorer.Dialogs
             string[] otherLines = otherDump.Split('\n');
             int offset = 0;
 
-
             for (int i = 0; i < ownLines.Length; i++)
             {
                 string line = ownLines[i];
@@ -623,28 +790,75 @@ namespace FileExplorer.Dialogs
             target.SelectionLength = 0;
         }
 
-        private void ListViewResults_DoubleClick(object sender, EventArgs e)
+        #endregion
+
+        #region Synchronized scrolling
+
+        private void DiffBox_Scroll(object sender, EventArgs e)
         {
-            if (listViewResults.SelectedItems.Count == 0)
+            if (_syncingScroll)
             {
                 return;
             }
 
-            var paths = listViewResults.SelectedItems[0].Tag as string[];
+            var source = (RichTextBox)sender;
+            RichTextBox target;
 
-            if (paths == null || paths.Length < 2)
+            if (sender == richTextBoxDiffLeft)
+            {
+                target = richTextBoxDiffRight;
+            }
+            else if (sender == richTextBoxDiffRight)
+            {
+                target = richTextBoxDiffLeft;
+            }
+            else if (sender == richTextBoxHexLeft)
+            {
+                target = richTextBoxHexRight;
+            }
+            else if (sender == richTextBoxHexRight)
+            {
+                target = richTextBoxHexLeft;
+            }
+            else
             {
                 return;
             }
 
-            if (paths[0].Length > 0 && paths[1].Length > 0
-                && File.Exists(paths[0]) && File.Exists(paths[1]))
+            _syncingScroll = true;
+
+            try
             {
-                textBoxLeft.Text = paths[0];
-                textBoxRight.Text = paths[1];
-                CompareFiles(paths[0], paths[1]);
+                Point position = GetScrollPosition(source);
+                SetScrollPosition(target, position);
+            }
+            finally
+            {
+                _syncingScroll = false;
             }
         }
+
+        private static Point GetScrollPosition(RichTextBox box)
+        {
+            var position = new Point();
+            SendMessage(box.Handle, EmGetScrollPos, IntPtr.Zero, ref position);
+            return position;
+        }
+
+        private static void SetScrollPosition(RichTextBox box, Point position)
+        {
+            var copy = new Point(position.X, position.Y);
+            SendMessage(box.Handle, EmSetScrollPos, IntPtr.Zero, ref copy);
+        }
+
+        private const int WmUser = 0x0400;
+        private const int EmGetScrollPos = WmUser + 221;
+        private const int EmSetScrollPos = WmUser + 222;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, ref Point lParam);
+
+        #endregion
 
         private static byte[] ReadBytes(string path, int maxBytes)
         {

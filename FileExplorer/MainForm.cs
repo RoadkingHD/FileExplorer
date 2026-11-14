@@ -785,7 +785,58 @@ namespace FileExplorer
                 && File.Exists(selected[0])
                 && string.Equals(Path.GetExtension(selected[0]), ".zip", StringComparison.OrdinalIgnoreCase);
 
+            UpdateCompareMenuItem(selected);
+
             BuildCustomActionsMenu(selected);
+        }
+
+        private void UpdateCompareMenuItem(List<string> selected)
+        {
+            bool enabled;
+
+            if (selected.Count == 2)
+            {
+                bool bothFiles = File.Exists(selected[0]) && File.Exists(selected[1]);
+                bool bothFolders = Directory.Exists(selected[0]) && Directory.Exists(selected[1]);
+                enabled = bothFiles || bothFolders;
+            }
+            else
+            {
+                enabled = selected.Count == 1 && Directory.Exists(selected[0]);
+            }
+
+            contextCompareToolStripMenuItem.Enabled = enabled;
+
+            if (enabled)
+            {
+                contextCompareToolStripMenuItem.Text = selected.Count == 2
+                    ? "Co&mpare..."
+                    : "Co&mpare with...";
+            }
+            else
+            {
+                contextCompareToolStripMenuItem.Text = "Co&mpare...";
+            }
+        }
+
+        private void ContextCompareToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            List<string> selected = GetSelectedPaths();
+
+            if (selected.Count == 2)
+            {
+                using (var dialog = new CompareDialog(selected[0], selected[1]))
+                {
+                    dialog.ShowDialog(this);
+                }
+            }
+            else if (selected.Count == 1 && Directory.Exists(selected[0]))
+            {
+                using (var dialog = new CompareDialog(selected[0], null))
+                {
+                    dialog.ShowDialog(this);
+                }
+            }
         }
 
         private List<string> GetSelectedPaths()
