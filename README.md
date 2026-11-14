@@ -8,9 +8,18 @@ A Windows Explorer style file browser for Windows, built with C# WinForms on .NE
 - Real system icons via the Windows shell (`SHGetFileInfo`)
 - Back / Forward / Up navigation with an address bar (`~` and `%ENV%` supported)
 - Zip files and folders (toolbar button or right-click), extract `.zip` files with right-click
+- Copy / cut / paste (paste-move for cut items, shell `Preferred DropEffect` compatible with Explorer) and new folder in the right-click menus of the folder tree and file list
+- Rename files and folders (F2 or right-click), with conflict and invalid-character checks
+- Drag & drop into the list: drop from Explorer to copy, drag within the list onto a folder to move
+- Preview panel can be docked right or bottom (View menu)
 - Custom right-click actions with file-extension filters (`.txt; .md; *.log`, `*` = all),
   arguments support `{file}` and `{files}` placeholders; stored in `%APPDATA%\FileExplorer\custom-actions.json`
-- Hidable preview panel for text, JSON (pretty-printed + colored), XML (indented) and HTML (rendered)
+- Previews are not truncated: full text files, complete JSON/XML trees, complete zip listings and full PE import/export lists are shown regardless of size
+- Hidable preview panel for text, JSON and XML (foldable tree view with syntax coloring, plus a raw text view), HTML (rendered), PDF (Adobe Reader) and Word / Excel / PowerPoint documents (converted via Office COM automation)
+- PE browser preview for `.exe` / `.dll`: machine, subsystem, sections, imports, exports, and managed vs. native detection — for managed images the CLR runtime version and target framework (e.g. `.NETFramework,Version=v4.7.2`, `.NETCoreApp,Version=v8.0`) are shown; the tree is always fully expanded
+- File search (Ctrl+F or the Search toolbar button): recursive search with wildcards (`*.txt`, `data??.csv`, multiple patterns separated by `;`) and optional full-text search inside files (with match-case option, line numbers and matching-line preview); double-click a result to open it in the browser
+- Compare two files or two folders (Compare toolbar button, Tools menu, right-click **Compare...** on two selected files/folders, or right-click **Compare with...** on a folder in the folder tree or file list): line-based text diff shown **side-by-side with synchronized scrolling** and whitespace-insensitive comparison (indentation and spacing differences are treated as equal), side-by-side hex view with highlighted differences for binary files, and folder comparison shown **only side-by-side**: two color-coded folder trees with synchronized vertical and horizontal scrolling, synchronized expand/collapse, dimmed placeholders for files missing on one side, filters (All / Differences only / Only in left / Only in right), and drill-down into a synchronized side-by-side file diff by double-click (with a **< Results** button to go back)
+- Zip archive preview: selecting a `.zip` file shows its full entry tree with uncompressed/compressed sizes
 
 ## Build
 

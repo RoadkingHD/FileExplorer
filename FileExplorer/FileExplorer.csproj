@@ -51,11 +51,29 @@
     <Compile Include="Controls\PreviewPanel.Designer.cs">
       <DependentUpon>PreviewPanel.cs</DependentUpon>
     </Compile>
+    <Compile Include="Dialogs\CompareDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Dialogs\CompareDialog.Designer.cs">
+      <DependentUpon>CompareDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Dialogs\CustomActionsDialog.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Dialogs\CustomActionsDialog.Designer.cs">
       <DependentUpon>CustomActionsDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\InputDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Dialogs\InputDialog.Designer.cs">
+      <DependentUpon>InputDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\SearchDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Dialogs\SearchDialog.Designer.cs">
+      <DependentUpon>SearchDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
@@ -67,7 +85,17 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\CustomActionStore.cs" />
+    <Compile Include="Services\DiffService.cs" />
+    <Compile Include="Services\PeBrowserService.cs" />
     <Compile Include="Services\ShellIconService.cs" />
+    <Compile Include="Services\SearchService.cs" />
+    <Compile Include="Controls\DiffMarkerStrip.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\ScrollableTreeView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Services\SearchService.cs" />
     <Compile Include="Services\ZipService.cs" />
   </ItemGroup>
   <ItemGroup>

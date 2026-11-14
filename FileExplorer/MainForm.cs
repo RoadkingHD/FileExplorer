@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
@@ -20,6 +21,7 @@ namespace FileExplorer
         private int _historyPosition = -1;
         private bool _updatingTreeSelection;
         private string _currentPath;
+        private bool _listViewInternalDrag;
 
         public MainForm()
         {
@@ -65,6 +67,16 @@ namespace FileExplorer
             }
         }
 
+        private void EnsureDriveIcon(string driveName)
+        {
+            string key = "drive:" + driveName;
+
+            if (!treeImageList.Images.ContainsKey(key))
+            {
+                treeImageList.Images.Add(key, ShellIconService.GetSmallIcon(driveName, false));
+            }
+        }
+
         #region Tree view
 
         private void BuildTreeRoots()
@@ -79,7 +91,11 @@ namespace FileExplorer
             {
                 if (drive.IsReady)
                 {
-                    treeViewFolders.Nodes.Add(CreateDirectoryNode(drive.Name, drive.Name));
+                    EnsureDriveIcon(drive.Name);
+                    TreeNode driveNode = CreateDirectoryNode(drive.Name, drive.Name);
+                    driveNode.ImageKey = "drive:" + drive.Name;
+                    driveNode.SelectedImageKey = driveNode.ImageKey;
+                    treeViewFolders.Nodes.Add(driveNode);
                 }
             }
 
@@ -467,6 +483,34 @@ namespace FileExplorer
             }
         }
 
+        private void PreviewRightToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetPreviewDock(false);
+        }
+
+        private void PreviewBottomToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetPreviewDock(true);
+        }
+
+        private void SetPreviewDock(bool bottom)
+        {
+            previewRightToolStripMenuItem.Checked = !bottom;
+            previewBottomToolStripMenuItem.Checked = bottom;
+
+            splitContent.Orientation = bottom ? Orientation.Horizontal : Orientation.Vertical;
+
+            try
+            {
+                splitContent.SplitterDistance = bottom
+                    ? Math.Max(100, splitContent.Height - 260)
+                    : Math.Max(100, splitContent.Width - 340);
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+
         private void LargeIconsToolStripMenuItem_Click(object sender, EventArgs e)
         {
             listViewFiles.View = View.LargeIcon;
@@ -515,11 +559,79 @@ namespace FileExplorer
             }
         }
 
+        private void SearchToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ShowSearchDialog();
+        }
+
+        private void ToolStripButtonSearch_Click(object sender, EventArgs e)
+        {
+            ShowSearchDialog();
+        }
+
+        private void CompareToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ShowCompareDialog();
+        }
+
+        private void ToolStripButtonCompare_Click(object sender, EventArgs e)
+        {
+            ShowCompareDialog();
+        }
+
+        private void ShowSearchDialog()
+        {
+            using (var dialog = new SearchDialog())
+            {
+                dialog.RootPath = _currentPath ?? string.Empty;
+
+                if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedResult == null)
+                {
+                    return;
+                }
+
+                SearchResult result = dialog.SelectedResult;
+
+                if (Directory.Exists(result.Directory))
+                {
+                    Navigate(result.Directory);
+                    SelectFileInList(result.Path);
+                }
+            }
+        }
+
+        private void SelectFileInList(string path)
+        {
+            foreach (ListViewItem item in listViewFiles.Items)
+            {
+                if (string.Equals((string)item.Tag, path, StringComparison.OrdinalIgnoreCase))
+                {
+                    item.Selected = true;
+                    item.Focused = true;
+                    item.EnsureVisible();
+                    break;
+                }
+            }
+        }
+
+        private void ShowCompareDialog()
+        {
+            List<string> selected = GetSelectedPaths();
+
+            string left = selected.Count > 0 ? selected[0] : null;
+            string right = selected.Count > 1 ? selected[1] : null;
+
+            using (var dialog = new CompareDialog(left, right))
+            {
+                dialog.ShowDialog(this);
+            }
+        }
+
         private void AboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
             MessageBox.Show(
                 this,
-                "FileExplorer\r\n\r\nA Windows Explorer style file browser with zip support,\ncustom right-click actions and a preview panel for text, JSON, XML and HTML files.",
+                "FileExplorer\r\n\r\nA Windows Explorer style file browser with zip support,\ncustom right-click actions, a preview panel (text, JSON, XML, HTML, PDF,\nOffice documents, EXE/DLL PE browser), file search and folder/file comparison.",
                 "About FileExplorer",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
@@ -552,6 +664,57 @@ namespace FileExplorer
             else if (e.KeyCode == Keys.F5)
             {
                 RefreshCurrentFolder();
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.F2 && listViewFiles.SelectedItems.Count == 1)
+            {
+                RenameSelectedItem();
+                e.Handled = true;
+            }
+            else if (e.Control && e.KeyCode == Keys.C)
+            {
+                CopyPathsToClipboard(GetSelectedPaths());
+                e.Handled = true;
+            }
+            else if (e.Control && e.KeyCode == Keys.X)
+            {
+                CutPathsToClipboard(GetSelectedPaths());
+                e.Handled = true;
+            }
+            else if (e.Control && e.KeyCode == Keys.V)
+            {
+                PasteFromClipboard(_currentPath);
+                e.Handled = true;
+            }
+        }
+
+        private void TreeViewFolders_KeyDown(object sender, KeyEventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            if (e.Control && e.KeyCode == Keys.C)
+            {
+                CopyPathsToClipboard(new List<string> { path });
+                e.Handled = true;
+            }
+            else if (e.Control && e.KeyCode == Keys.X)
+            {
+                CutPathsToClipboard(new List<string> { path });
+                e.Handled = true;
+            }
+            else if (e.Control && e.KeyCode == Keys.V)
+            {
+                PasteFromClipboard(path);
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.F2)
+            {
+                RenameItem(path);
                 e.Handled = true;
             }
         }
@@ -613,12 +776,67 @@ namespace FileExplorer
             contextZipToolStripMenuItem.Enabled = hasSelection;
             contextCopyPathToolStripMenuItem.Enabled = hasSelection;
             contextDeleteToolStripMenuItem.Enabled = hasSelection;
+            contextCopyToolStripMenuItem.Enabled = hasSelection;
+            contextCutToolStripMenuItem.Enabled = hasSelection;
+            contextPasteToolStripMenuItem.Enabled = Clipboard.ContainsFileDropList();
+            contextRenameToolStripMenuItem.Enabled = selected.Count == 1;
 
             contextExtractHereToolStripMenuItem.Enabled = selected.Count == 1
                 && File.Exists(selected[0])
                 && string.Equals(Path.GetExtension(selected[0]), ".zip", StringComparison.OrdinalIgnoreCase);
 
+            UpdateCompareMenuItem(selected);
+
             BuildCustomActionsMenu(selected);
+        }
+
+        private void UpdateCompareMenuItem(List<string> selected)
+        {
+            bool enabled;
+
+            if (selected.Count == 2)
+            {
+                bool bothFiles = File.Exists(selected[0]) && File.Exists(selected[1]);
+                bool bothFolders = Directory.Exists(selected[0]) && Directory.Exists(selected[1]);
+                enabled = bothFiles || bothFolders;
+            }
+            else
+            {
+                enabled = selected.Count == 1 && Directory.Exists(selected[0]);
+            }
+
+            contextCompareToolStripMenuItem.Enabled = enabled;
+
+            if (enabled)
+            {
+                contextCompareToolStripMenuItem.Text = selected.Count == 2
+                    ? "Co&mpare..."
+                    : "Co&mpare with...";
+            }
+            else
+            {
+                contextCompareToolStripMenuItem.Text = "Co&mpare...";
+            }
+        }
+
+        private void ContextCompareToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            List<string> selected = GetSelectedPaths();
+
+            if (selected.Count == 2)
+            {
+                using (var dialog = new CompareDialog(selected[0], selected[1]))
+                {
+                    dialog.ShowDialog(this);
+                }
+            }
+            else if (selected.Count == 1 && Directory.Exists(selected[0]))
+            {
+                using (var dialog = new CompareDialog(selected[0], null))
+                {
+                    dialog.ShowDialog(this);
+                }
+            }
         }
 
         private List<string> GetSelectedPaths()
@@ -751,7 +969,617 @@ namespace FileExplorer
             RefreshCurrentFolder();
         }
 
+        private void ContextCopyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            CopyPathsToClipboard(GetSelectedPaths());
+        }
+
+        private void ContextCutToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            CutPathsToClipboard(GetSelectedPaths());
+        }
+
+        private void ContextRenameToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            RenameSelectedItem();
+        }
+
+        private void ContextPasteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            PasteFromClipboard(_currentPath);
+        }
+
+        private void ContextNewFolderToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            CreateNewFolder(_currentPath);
+        }
+
         #endregion
+
+        #region Folder context menu
+
+        private void TreeViewFolders_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                TreeNode node = treeViewFolders.GetNodeAt(e.Location);
+
+                if (node != null)
+                {
+                    treeViewFolders.SelectedNode = node;
+                }
+            }
+        }
+
+        private void ContextMenuStripFolders_Opening(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            string path = treeViewFolders.SelectedNode == null ? null : treeViewFolders.SelectedNode.Tag as string;
+            bool hasPath = !string.IsNullOrEmpty(path) && Directory.Exists(path);
+
+            contextFolderOpenToolStripMenuItem.Enabled = hasPath;
+            contextFolderCopyToolStripMenuItem.Enabled = hasPath;
+            contextFolderCutToolStripMenuItem.Enabled = hasPath;
+            contextFolderPasteToolStripMenuItem.Enabled = hasPath && Clipboard.ContainsFileDropList();
+            contextFolderNewFolderToolStripMenuItem.Enabled = hasPath;
+            contextFolderRenameToolStripMenuItem.Enabled = hasPath;
+            contextFolderCompareToolStripMenuItem.Enabled = hasPath;
+        }
+
+        private void ContextFolderCompareToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
+            {
+                using (var dialog = new CompareDialog(path, null))
+                {
+                    dialog.ShowDialog(this);
+                }
+            }
+        }
+
+        private void ContextFolderOpenToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                Navigate(path);
+            }
+        }
+
+        private void ContextFolderCopyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                CopyPathsToClipboard(new List<string> { path });
+            }
+        }
+
+        private void ContextFolderCutToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                CutPathsToClipboard(new List<string> { path });
+            }
+        }
+
+        private void ContextFolderRenameToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                RenameItem(path);
+            }
+        }
+
+        private void ContextFolderPasteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                PasteFromClipboard(path);
+            }
+        }
+
+        private void ContextFolderNewFolderToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = GetSelectedTreePath();
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                CreateNewFolder(path);
+            }
+        }
+
+        private void ContextFolderRefreshToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            RefreshCurrentFolder();
+        }
+
+        private string GetSelectedTreePath()
+        {
+            return treeViewFolders.SelectedNode == null ? null : treeViewFolders.SelectedNode.Tag as string;
+        }
+
+        #endregion
+
+        #region Clipboard and folder creation
+
+        private static void CopyPathsToClipboard(IList<string> paths)
+        {
+            SetPathsToClipboard(paths, false);
+        }
+
+        private static void CutPathsToClipboard(IList<string> paths)
+        {
+            SetPathsToClipboard(paths, true);
+        }
+
+        private static void SetPathsToClipboard(IList<string> paths, bool cut)
+        {
+            if (paths == null || paths.Count == 0)
+            {
+                return;
+            }
+
+            var list = new System.Collections.Specialized.StringCollection();
+            list.AddRange(paths.ToArray());
+            var dataObject = new DataObject();
+            dataObject.SetFileDropList(list);
+
+            if (cut)
+            {
+                dataObject.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(2)));
+            }
+
+            Clipboard.SetDataObject(dataObject, true);
+        }
+
+        private static bool ClipboardHasCutFiles()
+        {
+            if (!Clipboard.ContainsData("Preferred DropEffect"))
+            {
+                return false;
+            }
+
+            var stream = Clipboard.GetData("Preferred DropEffect") as MemoryStream;
+
+            if (stream == null)
+            {
+                return false;
+            }
+
+            var bytes = new byte[4];
+            stream.Position = 0;
+            return stream.Read(bytes, 0, 4) == 4 && (BitConverter.ToInt32(bytes, 0) & 2) != 0;
+        }
+
+        private static bool DragHasCutEffect(DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent("Preferred DropEffect"))
+            {
+                return false;
+            }
+
+            var stream = e.Data.GetData("Preferred DropEffect") as MemoryStream;
+
+            if (stream == null)
+            {
+                return false;
+            }
+
+            var bytes = new byte[4];
+            stream.Position = 0;
+            return stream.Read(bytes, 0, 4) == 4 && (BitConverter.ToInt32(bytes, 0) & 2) != 0;
+        }
+
+        private void PasteFromClipboard(string targetDirectory)
+        {
+            if (string.IsNullOrEmpty(targetDirectory) || !Directory.Exists(targetDirectory) || !Clipboard.ContainsFileDropList())
+            {
+                return;
+            }
+
+            bool isCut = ClipboardHasCutFiles();
+            var sources = Clipboard.GetFileDropList().Cast<string>().ToList();
+            int transferred = TransferPaths(sources, targetDirectory, isCut);
+
+            if (isCut && transferred > 0)
+            {
+                Clipboard.Clear();
+            }
+        }
+
+        private static string GetAvailableName(string directory, string name)
+        {
+            string candidate = Path.Combine(directory, name);
+
+            if (!Directory.Exists(candidate) && !File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            string baseName = Path.GetFileNameWithoutExtension(name);
+            string extension = Path.GetExtension(name);
+            int counter = 2;
+
+            while (true)
+            {
+                candidate = Path.Combine(directory, baseName + " (" + counter + ")" + extension);
+
+                if (!Directory.Exists(candidate) && !File.Exists(candidate))
+                {
+                    return candidate;
+                }
+
+                counter++;
+            }
+        }
+
+        private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
+        {
+            Directory.CreateDirectory(destinationDirectory);
+
+            foreach (string file in Directory.GetFiles(sourceDirectory))
+            {
+                File.Copy(file, Path.Combine(destinationDirectory, Path.GetFileName(file)), false);
+            }
+
+            foreach (string subDirectory in Directory.GetDirectories(sourceDirectory))
+            {
+                CopyDirectory(subDirectory, Path.Combine(destinationDirectory, Path.GetFileName(subDirectory)));
+            }
+        }
+
+        private int TransferPaths(IList<string> sources, string targetDirectory, bool move)
+        {
+            if (sources == null || sources.Count == 0 || string.IsNullOrEmpty(targetDirectory) || !Directory.Exists(targetDirectory))
+            {
+                return 0;
+            }
+
+            string targetRoot = Path.GetFullPath(targetDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            var errors = new List<string>();
+            int transferred = 0;
+
+            foreach (string source in sources)
+            {
+                try
+                {
+                    if (!File.Exists(source) && !Directory.Exists(source))
+                    {
+                        errors.Add(Path.GetFileName(source) + ": the item no longer exists");
+                        continue;
+                    }
+
+                    string sourceRoot = Path.GetFullPath(source).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+                    if (targetRoot.StartsWith(sourceRoot, StringComparison.OrdinalIgnoreCase))
+                    {
+                        errors.Add(Path.GetFileName(source) + ": cannot move a folder into itself or a subfolder");
+                        continue;
+                    }
+
+                    string name = Path.GetFileName(source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                    string destination = GetAvailableName(targetDirectory, name);
+
+                    if (move)
+                    {
+                        MoveEntry(source, destination);
+                    }
+                    else if (Directory.Exists(source))
+                    {
+                        CopyDirectory(source, destination);
+                    }
+                    else
+                    {
+                        File.Copy(source, destination, false);
+                    }
+
+                    transferred++;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add(Path.GetFileName(source) + ": " + ex.Message);
+                }
+            }
+
+            if (transferred > 0)
+            {
+                if (string.Equals(targetDirectory, _currentPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    RefreshCurrentFolder();
+                }
+
+                RefreshTreeNode(targetDirectory);
+            }
+
+            if (errors.Count > 0)
+            {
+                MessageBox.Show(this, "Some items could not be transferred.\r\n\r\n" + string.Join(Environment.NewLine, errors), move ? "Move" : "Paste", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
+            return transferred;
+        }
+
+        private static void MoveEntry(string source, string destination)
+        {
+            try
+            {
+                if (Directory.Exists(source))
+                {
+                    Directory.Move(source, destination);
+                }
+                else
+                {
+                    File.Move(source, destination);
+                }
+            }
+            catch (IOException)
+            {
+                if (Directory.Exists(source))
+                {
+                    CopyDirectory(source, destination);
+                    Directory.Delete(source, true);
+                }
+                else
+                {
+                    File.Copy(source, destination, false);
+                    File.Delete(source);
+                }
+            }
+        }
+
+        private void RenameSelectedItem()
+        {
+            if (listViewFiles.SelectedItems.Count != 1)
+            {
+                return;
+            }
+
+            RenameItem((string)listViewFiles.SelectedItems[0].Tag);
+        }
+
+        private void RenameItem(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            bool isDirectory = Directory.Exists(path);
+
+            if (!isDirectory && !File.Exists(path))
+            {
+                return;
+            }
+
+            string currentName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+            using (var dialog = new InputDialog("Rename", "New name:", currentName))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                string newName = dialog.Value;
+
+                if (newName.Length == 0 || newName == currentName)
+                {
+                    return;
+                }
+
+                if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                {
+                    MessageBox.Show(this, "The name contains invalid characters.", "Rename", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string newPath = Path.Combine(Path.GetDirectoryName(path), newName);
+
+                if (Directory.Exists(newPath) || File.Exists(newPath))
+                {
+                    MessageBox.Show(this, "An item named \"" + newName + "\" already exists.", "Rename", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                try
+                {
+                    MoveEntry(path, newPath);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "Could not rename the item.\r\n\r\n" + ex.Message, "Rename", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                string trimmedOld = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                bool viewingRenamedTree = _currentPath != null &&
+                    (string.Equals(_currentPath, trimmedOld, StringComparison.OrdinalIgnoreCase)
+                     || _currentPath.StartsWith(trimmedOld + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+
+                RefreshTreeNode(Path.GetDirectoryName(path));
+
+                if (viewingRenamedTree && isDirectory)
+                {
+                    Navigate(newPath);
+                }
+                else
+                {
+                    RefreshCurrentFolder();
+                }
+            }
+        }
+
+        #endregion
+
+        #region Drag and drop
+
+        private void ListViewFiles_ItemDrag(object sender, ItemDragEventArgs e)
+        {
+            List<string> paths = GetSelectedPaths();
+
+            if (paths.Count == 0)
+            {
+                return;
+            }
+
+            var list = new System.Collections.Specialized.StringCollection();
+            list.AddRange(paths.ToArray());
+            var dataObject = new DataObject();
+            dataObject.SetFileDropList(list);
+            dataObject.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(2)));
+
+            _listViewInternalDrag = true;
+
+            try
+            {
+                listViewFiles.DoDragDrop(dataObject, DragDropEffects.Move);
+            }
+            finally
+            {
+                _listViewInternalDrag = false;
+            }
+        }
+
+        private void ListViewFiles_DragEnter(object sender, DragEventArgs e)
+        {
+            e.Effect = GetListViewDropEffect(e);
+        }
+
+        private void ListViewFiles_DragOver(object sender, DragEventArgs e)
+        {
+            e.Effect = GetListViewDropEffect(e);
+        }
+
+        private DragDropEffects GetListViewDropEffect(DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                return DragDropEffects.None;
+            }
+
+            return _listViewInternalDrag ? DragDropEffects.Move : DragDropEffects.Copy;
+        }
+
+        private void ListViewFiles_DragDrop(object sender, DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                return;
+            }
+
+            bool wasInternal = _listViewInternalDrag;
+            _listViewInternalDrag = false;
+
+            Point dropPoint = listViewFiles.PointToClient(new Point(e.X, e.Y));
+            ListViewItem targetItem = listViewFiles.GetItemAt(dropPoint.X, dropPoint.Y);
+            string targetDirectory = _currentPath;
+
+            if (targetItem != null)
+            {
+                string targetPath = targetItem.Tag as string;
+
+                if (targetPath != null && Directory.Exists(targetPath))
+                {
+                    targetDirectory = targetPath;
+                }
+            }
+
+            var sources = ((string[])e.Data.GetData(DataFormats.FileDrop)).ToList();
+            TransferPaths(sources, targetDirectory, wasInternal || DragHasCutEffect(e));
+        }
+
+        #endregion
+
+        private void CreateNewFolder(string parentDirectory)
+        {
+            if (string.IsNullOrEmpty(parentDirectory) || !Directory.Exists(parentDirectory))
+            {
+                return;
+            }
+
+            string suggestedName = Path.GetFileName(GetAvailableName(parentDirectory, "New folder"));
+            string createdPath = null;
+
+            using (var dialog = new InputDialog("New folder", "Folder name:", suggestedName))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                string name = dialog.Value;
+
+                if (name.Length == 0)
+                {
+                    return;
+                }
+
+                try
+                {
+                    createdPath = Path.Combine(parentDirectory, name);
+
+                    if (Directory.Exists(createdPath) || File.Exists(createdPath))
+                    {
+                        MessageBox.Show(this, "An item named \"" + name + "\" already exists.", "New folder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    Directory.CreateDirectory(createdPath);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "Could not create the folder.\r\n\r\n" + ex.Message, "New folder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+
+            if (string.Equals(parentDirectory, _currentPath, StringComparison.OrdinalIgnoreCase))
+            {
+                RefreshCurrentFolder();
+            }
+
+            RefreshTreeNode(parentDirectory);
+            SelectTreeNode(createdPath);
+        }
+
+        private void RefreshTreeNode(string path)
+        {
+            TreeNode node = FindTreeNode(treeViewFolders.Nodes, path);
+
+            if (node == null)
+            {
+                return;
+            }
+
+            node.Nodes.Clear();
+            node.Nodes.Add(DummyNodeName, DummyNodeName);
+
+            if (node.IsExpanded)
+            {
+                node.Nodes.Clear();
+
+                foreach (string directory in SafeGetDirectories(path))
+                {
+                    node.Nodes.Add(CreateDirectoryNode(directory, Path.GetFileName(directory)));
+                }
+
+                if (node.Nodes.Count == 0)
+                {
+                    node.Collapse();
+                }
+            }
+        }
+
 
         #region Zip and extract
 

@@ -31,6 +31,9 @@ namespace FileExplorer
             this.detailsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.refreshToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.previewPositionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.previewRightToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.previewBottomToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.zipSelectionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
@@ -48,6 +51,9 @@ namespace FileExplorer
             this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
             this.toolStripButtonZip = new System.Windows.Forms.ToolStripButton();
             this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
+            this.toolStripButtonSearch = new System.Windows.Forms.ToolStripButton();
+            this.toolStripButtonCompare = new System.Windows.Forms.ToolStripButton();
+            this.toolStripSeparator14 = new System.Windows.Forms.ToolStripSeparator();
             this.toolStripButtonPreview = new System.Windows.Forms.ToolStripButton();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripStatusLabelItems = new System.Windows.Forms.ToolStripStatusLabel();
@@ -70,11 +76,31 @@ namespace FileExplorer
             this.contextExtractHereToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator9 = new System.Windows.Forms.ToolStripSeparator();
             this.contextCustomActionsMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextCompareToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator10 = new System.Windows.Forms.ToolStripSeparator();
             this.contextCopyPathToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.contextDeleteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator11 = new System.Windows.Forms.ToolStripSeparator();
             this.contextRefreshToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextCopyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextCutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextPasteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextNewFolderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextRenameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextMenuStripFolders = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.contextFolderCompareToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator16 = new System.Windows.Forms.ToolStripSeparator();
+            this.contextFolderOpenToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator12 = new System.Windows.Forms.ToolStripSeparator();
+            this.contextFolderCopyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextFolderCutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextFolderPasteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextFolderNewFolderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextFolderRenameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator13 = new System.Windows.Forms.ToolStripSeparator();
+            this.contextFolderRefreshToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.searchToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.compareToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip1.SuspendLayout();
             this.toolStrip1.SuspendLayout();
             this.statusStrip1.SuspendLayout();
@@ -135,6 +161,7 @@ namespace FileExplorer
             // 
             this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.previewPanelToolStripMenuItem,
+            this.previewPositionToolStripMenuItem,
             this.toolStripSeparator2,
             this.largeIconsToolStripMenuItem,
             this.smallIconsToolStripMenuItem,
@@ -154,6 +181,31 @@ namespace FileExplorer
             this.previewPanelToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.previewPanelToolStripMenuItem.Text = "&Preview panel";
             this.previewPanelToolStripMenuItem.CheckedChanged += new System.EventHandler(this.PreviewPanelToolStripMenuItem_CheckedChanged);
+            // 
+            // previewPositionToolStripMenuItem
+            // 
+            this.previewPositionToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.previewRightToolStripMenuItem,
+            this.previewBottomToolStripMenuItem});
+            this.previewPositionToolStripMenuItem.Name = "previewPositionToolStripMenuItem";
+            this.previewPositionToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.previewPositionToolStripMenuItem.Text = "Preview &position";
+            // 
+            // previewRightToolStripMenuItem
+            // 
+            this.previewRightToolStripMenuItem.Checked = true;
+            this.previewRightToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.previewRightToolStripMenuItem.Name = "previewRightToolStripMenuItem";
+            this.previewRightToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.previewRightToolStripMenuItem.Text = "Docked &right";
+            this.previewRightToolStripMenuItem.Click += new System.EventHandler(this.PreviewRightToolStripMenuItem_Click);
+            // 
+            // previewBottomToolStripMenuItem
+            // 
+            this.previewBottomToolStripMenuItem.Name = "previewBottomToolStripMenuItem";
+            this.previewBottomToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.previewBottomToolStripMenuItem.Text = "Docked &bottom";
+            this.previewBottomToolStripMenuItem.Click += new System.EventHandler(this.PreviewBottomToolStripMenuItem_Click);
             // 
             // toolStripSeparator2
             // 
@@ -201,6 +253,8 @@ namespace FileExplorer
             this.toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.zipSelectionToolStripMenuItem,
             this.toolStripSeparator4,
+            this.searchToolStripMenuItem,
+            this.compareToolStripMenuItem,
             this.manageCustomActionsToolStripMenuItem});
             this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
             this.toolsToolStripMenuItem.Size = new System.Drawing.Size(46, 20);
@@ -217,6 +271,21 @@ namespace FileExplorer
             // 
             this.toolStripSeparator4.Name = "toolStripSeparator4";
             this.toolStripSeparator4.Size = new System.Drawing.Size(221, 6);
+            //
+            // searchToolStripMenuItem
+            //
+            this.searchToolStripMenuItem.Name = "searchToolStripMenuItem";
+            this.searchToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.F)));
+            this.searchToolStripMenuItem.Size = new System.Drawing.Size(224, 22);
+            this.searchToolStripMenuItem.Text = "&Search files...";
+            this.searchToolStripMenuItem.Click += new System.EventHandler(this.SearchToolStripMenuItem_Click);
+            //
+            // compareToolStripMenuItem
+            //
+            this.compareToolStripMenuItem.Name = "compareToolStripMenuItem";
+            this.compareToolStripMenuItem.Size = new System.Drawing.Size(224, 22);
+            this.compareToolStripMenuItem.Text = "&Compare files or folders...";
+            this.compareToolStripMenuItem.Click += new System.EventHandler(this.CompareToolStripMenuItem_Click);
             // 
             // manageCustomActionsToolStripMenuItem
             // 
@@ -253,6 +322,9 @@ namespace FileExplorer
             this.toolStripSeparator6,
             this.toolStripButtonZip,
             this.toolStripSeparator7,
+            this.toolStripButtonSearch,
+            this.toolStripButtonCompare,
+            this.toolStripSeparator14,
             this.toolStripButtonPreview});
             this.toolStrip1.Location = new System.Drawing.Point(0, 24);
             this.toolStrip1.Name = "toolStrip1";
@@ -356,6 +428,31 @@ namespace FileExplorer
             this.toolStripButtonPreview.Text = "Preview";
             this.toolStripButtonPreview.ToolTipText = "Show or hide the preview panel";
             this.toolStripButtonPreview.CheckedChanged += new System.EventHandler(this.ToolStripButtonPreview_CheckedChanged);
+            //
+            // toolStripButtonSearch
+            //
+            this.toolStripButtonSearch.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonSearch.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonSearch.Name = "toolStripButtonSearch";
+            this.toolStripButtonSearch.Size = new System.Drawing.Size(23, 22);
+            this.toolStripButtonSearch.Text = "Search";
+            this.toolStripButtonSearch.ToolTipText = "Search for files by name and content (Ctrl+F)";
+            this.toolStripButtonSearch.Click += new System.EventHandler(this.ToolStripButtonSearch_Click);
+            //
+            // toolStripButtonCompare
+            //
+            this.toolStripButtonCompare.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonCompare.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonCompare.Name = "toolStripButtonCompare";
+            this.toolStripButtonCompare.Size = new System.Drawing.Size(23, 22);
+            this.toolStripButtonCompare.Text = "Compare";
+            this.toolStripButtonCompare.ToolTipText = "Compare two files or folders (text diff or hex view)";
+            this.toolStripButtonCompare.Click += new System.EventHandler(this.ToolStripButtonCompare_Click);
+            //
+            // toolStripSeparator14
+            //
+            this.toolStripSeparator14.Name = "toolStripSeparator14";
+            this.toolStripSeparator14.Size = new System.Drawing.Size(6, 25);
             // 
             // statusStrip1
             // 
@@ -397,6 +494,7 @@ namespace FileExplorer
             // treeViewFolders
             // 
             this.treeViewFolders.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.treeViewFolders.ContextMenuStrip = this.contextMenuStripFolders;
             this.treeViewFolders.HideSelection = false;
             this.treeViewFolders.ImageIndex = 0;
             this.treeViewFolders.ImageList = this.treeImageList;
@@ -408,6 +506,8 @@ namespace FileExplorer
             this.treeViewFolders.TabIndex = 0;
             this.treeViewFolders.BeforeExpand += new System.Windows.Forms.TreeViewCancelEventHandler(this.TreeViewFolders_BeforeExpand);
             this.treeViewFolders.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.TreeViewFolders_AfterSelect);
+            this.treeViewFolders.MouseClick += new System.Windows.Forms.MouseEventHandler(this.TreeViewFolders_MouseClick);
+            this.treeViewFolders.KeyDown += new System.Windows.Forms.KeyEventHandler(this.TreeViewFolders_KeyDown);
             // 
             // treeImageList
             // 
@@ -438,6 +538,7 @@ namespace FileExplorer
             // 
             // listViewFiles
             // 
+            this.listViewFiles.AllowDrop = true;
             this.listViewFiles.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.columnHeaderName,
             this.columnHeaderModified,
@@ -460,6 +561,10 @@ namespace FileExplorer
             this.listViewFiles.DoubleClick += new System.EventHandler(this.ListViewFiles_DoubleClick);
             this.listViewFiles.ItemSelectionChanged += new System.Windows.Forms.ListViewItemSelectionChangedEventHandler(this.ListViewFiles_ItemSelectionChanged);
             this.listViewFiles.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ListViewFiles_KeyDown);
+            this.listViewFiles.ItemDrag += new System.Windows.Forms.ItemDragEventHandler(this.ListViewFiles_ItemDrag);
+            this.listViewFiles.DragEnter += new System.Windows.Forms.DragEventHandler(this.ListViewFiles_DragEnter);
+            this.listViewFiles.DragOver += new System.Windows.Forms.DragEventHandler(this.ListViewFiles_DragOver);
+            this.listViewFiles.DragDrop += new System.Windows.Forms.DragEventHandler(this.ListViewFiles_DragDrop);
             // 
             // columnHeaderName
             // 
@@ -505,18 +610,24 @@ namespace FileExplorer
             // 
             this.contextMenuStripFiles.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.contextOpenToolStripMenuItem,
+            this.contextCopyToolStripMenuItem,
+            this.contextCutToolStripMenuItem,
+            this.contextPasteToolStripMenuItem,
+            this.contextNewFolderToolStripMenuItem,
+            this.contextRenameToolStripMenuItem,
             this.toolStripSeparator8,
             this.contextZipToolStripMenuItem,
             this.contextExtractHereToolStripMenuItem,
             this.toolStripSeparator9,
             this.contextCustomActionsMenuItem,
             this.toolStripSeparator10,
+            this.contextCompareToolStripMenuItem,
             this.contextCopyPathToolStripMenuItem,
             this.contextDeleteToolStripMenuItem,
             this.toolStripSeparator11,
             this.contextRefreshToolStripMenuItem});
             this.contextMenuStripFiles.Name = "contextMenuStripFiles";
-            this.contextMenuStripFiles.Size = new System.Drawing.Size(181, 154);
+            this.contextMenuStripFiles.Size = new System.Drawing.Size(181, 376);
             this.contextMenuStripFiles.Opening += new System.ComponentModel.CancelEventHandler(this.ContextMenuStripFiles_Opening);
             // 
             // contextOpenToolStripMenuItem
@@ -525,6 +636,45 @@ namespace FileExplorer
             this.contextOpenToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.contextOpenToolStripMenuItem.Text = "&Open";
             this.contextOpenToolStripMenuItem.Click += new System.EventHandler(this.ContextOpenToolStripMenuItem_Click);
+            // 
+            // contextCopyToolStripMenuItem
+            // 
+            this.contextCopyToolStripMenuItem.Name = "contextCopyToolStripMenuItem";
+            this.contextCopyToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.C)));
+            this.contextCopyToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextCopyToolStripMenuItem.Text = "Cop&y";
+            this.contextCopyToolStripMenuItem.Click += new System.EventHandler(this.ContextCopyToolStripMenuItem_Click);
+            // 
+            // contextCutToolStripMenuItem
+            // 
+            this.contextCutToolStripMenuItem.Name = "contextCutToolStripMenuItem";
+            this.contextCutToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.X)));
+            this.contextCutToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextCutToolStripMenuItem.Text = "Cu&t";
+            this.contextCutToolStripMenuItem.Click += new System.EventHandler(this.ContextCutToolStripMenuItem_Click);
+            // 
+            // contextPasteToolStripMenuItem
+            // 
+            this.contextPasteToolStripMenuItem.Name = "contextPasteToolStripMenuItem";
+            this.contextPasteToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.V)));
+            this.contextPasteToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextPasteToolStripMenuItem.Text = "&Paste";
+            this.contextPasteToolStripMenuItem.Click += new System.EventHandler(this.ContextPasteToolStripMenuItem_Click);
+            // 
+            // contextNewFolderToolStripMenuItem
+            // 
+            this.contextNewFolderToolStripMenuItem.Name = "contextNewFolderToolStripMenuItem";
+            this.contextNewFolderToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextNewFolderToolStripMenuItem.Text = "New &folder";
+            this.contextNewFolderToolStripMenuItem.Click += new System.EventHandler(this.ContextNewFolderToolStripMenuItem_Click);
+            // 
+            // contextRenameToolStripMenuItem
+            // 
+            this.contextRenameToolStripMenuItem.Name = "contextRenameToolStripMenuItem";
+            this.contextRenameToolStripMenuItem.ShortcutKeys = System.Windows.Forms.Keys.F2;
+            this.contextRenameToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextRenameToolStripMenuItem.Text = "Re&name";
+            this.contextRenameToolStripMenuItem.Click += new System.EventHandler(this.ContextRenameToolStripMenuItem_Click);
             // 
             // toolStripSeparator8
             // 
@@ -564,6 +714,14 @@ namespace FileExplorer
             this.toolStripSeparator10.Name = "toolStripSeparator10";
             this.toolStripSeparator10.Size = new System.Drawing.Size(177, 6);
             // 
+            // contextCompareToolStripMenuItem
+            // 
+            this.contextCompareToolStripMenuItem.Enabled = false;
+            this.contextCompareToolStripMenuItem.Name = "contextCompareToolStripMenuItem";
+            this.contextCompareToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextCompareToolStripMenuItem.Text = "Co&mpare...";
+            this.contextCompareToolStripMenuItem.Click += new System.EventHandler(this.ContextCompareToolStripMenuItem_Click);
+            // 
             // contextCopyPathToolStripMenuItem
             // 
             this.contextCopyPathToolStripMenuItem.Name = "contextCopyPathToolStripMenuItem";
@@ -589,6 +747,96 @@ namespace FileExplorer
             this.contextRefreshToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.contextRefreshToolStripMenuItem.Text = "Re&fresh";
             this.contextRefreshToolStripMenuItem.Click += new System.EventHandler(this.ContextRefreshToolStripMenuItem_Click);
+            // 
+            // contextMenuStripFolders
+            // 
+            this.contextMenuStripFolders.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.contextFolderOpenToolStripMenuItem,
+            this.toolStripSeparator12,
+            this.contextFolderCopyToolStripMenuItem,
+            this.contextFolderCutToolStripMenuItem,
+            this.contextFolderPasteToolStripMenuItem,
+            this.contextFolderNewFolderToolStripMenuItem,
+            this.contextFolderRenameToolStripMenuItem,
+            this.toolStripSeparator13,
+            this.contextFolderRefreshToolStripMenuItem,
+            this.toolStripSeparator16,
+            this.contextFolderCompareToolStripMenuItem});
+            this.contextMenuStripFolders.Name = "contextMenuStripFolders";
+            this.contextMenuStripFolders.Size = new System.Drawing.Size(181, 210);
+            this.contextMenuStripFolders.Opening += new System.ComponentModel.CancelEventHandler(this.ContextMenuStripFolders_Opening);
+            // 
+            // contextFolderOpenToolStripMenuItem
+            // 
+            this.contextFolderOpenToolStripMenuItem.Name = "contextFolderOpenToolStripMenuItem";
+            this.contextFolderOpenToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextFolderOpenToolStripMenuItem.Text = "&Open";
+            this.contextFolderOpenToolStripMenuItem.Click += new System.EventHandler(this.ContextFolderOpenToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator12
+            // 
+            this.toolStripSeparator12.Name = "toolStripSeparator12";
+            this.toolStripSeparator12.Size = new System.Drawing.Size(177, 6);
+            // 
+            // contextFolderCopyToolStripMenuItem
+            // 
+            this.contextFolderCopyToolStripMenuItem.Name = "contextFolderCopyToolStripMenuItem";
+            this.contextFolderCopyToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextFolderCopyToolStripMenuItem.Text = "Cop&y";
+            this.contextFolderCopyToolStripMenuItem.Click += new System.EventHandler(this.ContextFolderCopyToolStripMenuItem_Click);
+            // 
+            // contextFolderCutToolStripMenuItem
+            // 
+            this.contextFolderCutToolStripMenuItem.Name = "contextFolderCutToolStripMenuItem";
+            this.contextFolderCutToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextFolderCutToolStripMenuItem.Text = "Cu&t";
+            this.contextFolderCutToolStripMenuItem.Click += new System.EventHandler(this.ContextFolderCutToolStripMenuItem_Click);
+            // 
+            // contextFolderPasteToolStripMenuItem
+            // 
+            this.contextFolderPasteToolStripMenuItem.Name = "contextFolderPasteToolStripMenuItem";
+            this.contextFolderPasteToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextFolderPasteToolStripMenuItem.Text = "&Paste";
+            this.contextFolderPasteToolStripMenuItem.Click += new System.EventHandler(this.ContextFolderPasteToolStripMenuItem_Click);
+            // 
+            // contextFolderNewFolderToolStripMenuItem
+            // 
+            this.contextFolderNewFolderToolStripMenuItem.Name = "contextFolderNewFolderToolStripMenuItem";
+            this.contextFolderNewFolderToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextFolderNewFolderToolStripMenuItem.Text = "New &folder";
+            this.contextFolderNewFolderToolStripMenuItem.Click += new System.EventHandler(this.ContextFolderNewFolderToolStripMenuItem_Click);
+            // 
+            // contextFolderRenameToolStripMenuItem
+            // 
+            this.contextFolderRenameToolStripMenuItem.Name = "contextFolderRenameToolStripMenuItem";
+            this.contextFolderRenameToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextFolderRenameToolStripMenuItem.Text = "Re&name";
+            this.contextFolderRenameToolStripMenuItem.Click += new System.EventHandler(this.ContextFolderRenameToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator13
+            // 
+            this.toolStripSeparator13.Name = "toolStripSeparator13";
+            this.toolStripSeparator13.Size = new System.Drawing.Size(177, 6);
+            // 
+            // contextFolderRefreshToolStripMenuItem
+            // 
+            this.contextFolderRefreshToolStripMenuItem.Name = "contextFolderRefreshToolStripMenuItem";
+            this.contextFolderRefreshToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextFolderRefreshToolStripMenuItem.Text = "Re&fresh";
+            this.contextFolderRefreshToolStripMenuItem.Click += new System.EventHandler(this.ContextFolderRefreshToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator16
+            // 
+            this.toolStripSeparator16.Name = "toolStripSeparator16";
+            this.toolStripSeparator16.Size = new System.Drawing.Size(177, 6);
+            // 
+            // contextFolderCompareToolStripMenuItem
+            // 
+            this.contextFolderCompareToolStripMenuItem.Enabled = false;
+            this.contextFolderCompareToolStripMenuItem.Name = "contextFolderCompareToolStripMenuItem";
+            this.contextFolderCompareToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.contextFolderCompareToolStripMenuItem.Text = "Co&mpare with...";
+            this.contextFolderCompareToolStripMenuItem.Click += new System.EventHandler(this.ContextFolderCompareToolStripMenuItem_Click);
             // 
             // MainForm
             // 
@@ -656,6 +904,9 @@ namespace FileExplorer
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator6;
         private System.Windows.Forms.ToolStripButton toolStripButtonZip;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator7;
+        private System.Windows.Forms.ToolStripButton toolStripButtonSearch;
+        private System.Windows.Forms.ToolStripButton toolStripButtonCompare;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator14;
         private System.Windows.Forms.ToolStripButton toolStripButtonPreview;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabelItems;
@@ -678,10 +929,33 @@ namespace FileExplorer
         private System.Windows.Forms.ToolStripMenuItem contextExtractHereToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator9;
         private System.Windows.Forms.ToolStripMenuItem contextCustomActionsMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem contextCompareToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator10;
         private System.Windows.Forms.ToolStripMenuItem contextCopyPathToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem contextDeleteToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator11;
         private System.Windows.Forms.ToolStripMenuItem contextRefreshToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem contextCopyToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem contextCutToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem contextPasteToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem contextNewFolderToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem contextRenameToolStripMenuItem;
+        private System.Windows.Forms.ContextMenuStrip contextMenuStripFolders;
+        private System.Windows.Forms.ToolStripMenuItem contextFolderOpenToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator12;
+        private System.Windows.Forms.ToolStripMenuItem contextFolderCopyToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem contextFolderCutToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem contextFolderPasteToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem contextFolderNewFolderToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem contextFolderRenameToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator13;
+        private System.Windows.Forms.ToolStripMenuItem contextFolderRefreshToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator16;
+        private System.Windows.Forms.ToolStripMenuItem contextFolderCompareToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem searchToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem compareToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem previewPositionToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem previewRightToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem previewBottomToolStripMenuItem;
     }
 }
