@@ -47,10 +47,24 @@ namespace FileExplorer.Dialogs
             this.richTextBoxHexLeft = new System.Windows.Forms.RichTextBox();
             this.labelHexRight = new System.Windows.Forms.Label();
             this.richTextBoxHexRight = new System.Windows.Forms.RichTextBox();
+            this.labelFilter = new System.Windows.Forms.Label();
+            this.comboBoxFilter = new System.Windows.Forms.ComboBox();
+            this.btnBack = new System.Windows.Forms.Button();
+            this.tabPageSideBySide = new System.Windows.Forms.TabPage();
+            this.splitContainerFolders = new System.Windows.Forms.SplitContainer();
+            this.labelFoldersLeft = new System.Windows.Forms.Label();
+            this.treeViewFoldersLeft = new FileExplorer.Controls.ScrollableTreeView();
+            this.labelFoldersRight = new System.Windows.Forms.Label();
+            this.treeViewFoldersRight = new FileExplorer.Controls.ScrollableTreeView();
             this.tabControlResults.SuspendLayout();
             this.tabPageTree.SuspendLayout();
             this.tabPageList.SuspendLayout();
+            this.tabPageSideBySide.SuspendLayout();
             this.panelHex.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainerFolders)).BeginInit();
+            this.splitContainerFolders.Panel1.SuspendLayout();
+            this.splitContainerFolders.Panel2.SuspendLayout();
+            this.splitContainerFolders.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerDiff)).BeginInit();
             this.splitContainerDiff.Panel1.SuspendLayout();
             this.splitContainerDiff.Panel2.SuspendLayout();
@@ -148,9 +162,45 @@ namespace FileExplorer.Dialogs
             this.lblSummary.AutoEllipsis = true;
             this.lblSummary.Location = new System.Drawing.Point(12, 69);
             this.lblSummary.Name = "lblSummary";
-            this.lblSummary.Size = new System.Drawing.Size(660, 18);
+            this.lblSummary.Size = new System.Drawing.Size(350, 18);
             this.lblSummary.TabIndex = 8;
             this.lblSummary.Text = "Choose two files or two folders and click Compare.";
+            //
+            // labelFilter
+            //
+            this.labelFilter.AutoSize = true;
+            this.labelFilter.Location = new System.Drawing.Point(368, 69);
+            this.labelFilter.Name = "labelFilter";
+            this.labelFilter.Size = new System.Drawing.Size(37, 13);
+            this.labelFilter.TabIndex = 12;
+            this.labelFilter.Text = "Filter:";
+            //
+            // comboBoxFilter
+            //
+            this.comboBoxFilter.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboBoxFilter.FormattingEnabled = true;
+            this.comboBoxFilter.Items.AddRange(new object[] {
+            "All",
+            "Differences only",
+            "Only in left",
+            "Only in right"});
+            this.comboBoxFilter.Location = new System.Drawing.Point(410, 66);
+            this.comboBoxFilter.Name = "comboBoxFilter";
+            this.comboBoxFilter.Size = new System.Drawing.Size(125, 21);
+            this.comboBoxFilter.TabIndex = 13;
+            this.comboBoxFilter.SelectedIndexChanged += new System.EventHandler(this.ComboBoxFilter_SelectedIndexChanged);
+            //
+            // btnBack
+            //
+            this.btnBack.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnBack.Location = new System.Drawing.Point(560, 63);
+            this.btnBack.Name = "btnBack";
+            this.btnBack.Size = new System.Drawing.Size(100, 26);
+            this.btnBack.TabIndex = 14;
+            this.btnBack.Text = "< Results";
+            this.btnBack.UseVisualStyleBackColor = true;
+            this.btnBack.Visible = false;
+            this.btnBack.Click += new System.EventHandler(this.BtnBack_Click);
             //
             // tabControlResults
             //
@@ -159,6 +209,7 @@ namespace FileExplorer.Dialogs
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tabControlResults.Controls.Add(this.tabPageTree);
             this.tabControlResults.Controls.Add(this.tabPageList);
+            this.tabControlResults.Controls.Add(this.tabPageSideBySide);
             this.tabControlResults.Location = new System.Drawing.Point(12, 95);
             this.tabControlResults.Name = "tabControlResults";
             this.tabControlResults.SelectedIndex = 0;
@@ -216,6 +267,85 @@ namespace FileExplorer.Dialogs
             this.listViewResults.UseCompatibleStateImageBehavior = false;
             this.listViewResults.View = System.Windows.Forms.View.Details;
             this.listViewResults.DoubleClick += new System.EventHandler(this.ListViewResults_DoubleClick);
+            //
+            // tabPageSideBySide
+            //
+            this.tabPageSideBySide.Controls.Add(this.splitContainerFolders);
+            this.tabPageSideBySide.Location = new System.Drawing.Point(4, 22);
+            this.tabPageSideBySide.Name = "tabPageSideBySide";
+            this.tabPageSideBySide.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPageSideBySide.Size = new System.Drawing.Size(806, 419);
+            this.tabPageSideBySide.TabIndex = 2;
+            this.tabPageSideBySide.Text = "Side by side";
+            this.tabPageSideBySide.UseVisualStyleBackColor = true;
+            //
+            // splitContainerFolders
+            //
+            this.splitContainerFolders.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainerFolders.Location = new System.Drawing.Point(3, 3);
+            this.splitContainerFolders.Name = "splitContainerFolders";
+            this.splitContainerFolders.Orientation = System.Windows.Forms.Orientation.Vertical;
+            //
+            // splitContainerFolders.Panel1
+            //
+            this.splitContainerFolders.Panel1.Controls.Add(this.treeViewFoldersLeft);
+            this.splitContainerFolders.Panel1.Controls.Add(this.labelFoldersLeft);
+            //
+            // splitContainerFolders.Panel2
+            //
+            this.splitContainerFolders.Panel2.Controls.Add(this.treeViewFoldersRight);
+            this.splitContainerFolders.Panel2.Controls.Add(this.labelFoldersRight);
+            this.splitContainerFolders.Size = new System.Drawing.Size(800, 413);
+            this.splitContainerFolders.SplitterDistance = 395;
+            this.splitContainerFolders.TabIndex = 0;
+            //
+            // labelFoldersLeft
+            //
+            this.labelFoldersLeft.Dock = System.Windows.Forms.DockStyle.Top;
+            this.labelFoldersLeft.Location = new System.Drawing.Point(0, 0);
+            this.labelFoldersLeft.Name = "labelFoldersLeft";
+            this.labelFoldersLeft.Padding = new System.Windows.Forms.Padding(2, 3, 0, 3);
+            this.labelFoldersLeft.Size = new System.Drawing.Size(395, 22);
+            this.labelFoldersLeft.TabIndex = 0;
+            this.labelFoldersLeft.Text = "Left folder";
+            //
+            // treeViewFoldersLeft
+            //
+            this.treeViewFoldersLeft.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.treeViewFoldersLeft.HideSelection = false;
+            this.treeViewFoldersLeft.Location = new System.Drawing.Point(0, 22);
+            this.treeViewFoldersLeft.Name = "treeViewFoldersLeft";
+            this.treeViewFoldersLeft.ShowNodeToolTips = true;
+            this.treeViewFoldersLeft.Size = new System.Drawing.Size(395, 391);
+            this.treeViewFoldersLeft.TabIndex = 1;
+            this.treeViewFoldersLeft.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.FolderTree_AfterCollapse);
+            this.treeViewFoldersLeft.AfterExpand += new System.Windows.Forms.TreeViewEventHandler(this.FolderTree_AfterExpand);
+            this.treeViewFoldersLeft.ScrollMoved += new System.EventHandler(this.FolderTree_Scrolled);
+            this.treeViewFoldersLeft.DoubleClick += new System.EventHandler(this.TreeViewResults_DoubleClick);
+            //
+            // labelFoldersRight
+            //
+            this.labelFoldersRight.Dock = System.Windows.Forms.DockStyle.Top;
+            this.labelFoldersRight.Location = new System.Drawing.Point(0, 0);
+            this.labelFoldersRight.Name = "labelFoldersRight";
+            this.labelFoldersRight.Padding = new System.Windows.Forms.Padding(2, 3, 0, 3);
+            this.labelFoldersRight.Size = new System.Drawing.Size(401, 22);
+            this.labelFoldersRight.TabIndex = 0;
+            this.labelFoldersRight.Text = "Right folder";
+            //
+            // treeViewFoldersRight
+            //
+            this.treeViewFoldersRight.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.treeViewFoldersRight.HideSelection = false;
+            this.treeViewFoldersRight.Location = new System.Drawing.Point(0, 22);
+            this.treeViewFoldersRight.Name = "treeViewFoldersRight";
+            this.treeViewFoldersRight.ShowNodeToolTips = true;
+            this.treeViewFoldersRight.Size = new System.Drawing.Size(401, 391);
+            this.treeViewFoldersRight.TabIndex = 1;
+            this.treeViewFoldersRight.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.FolderTree_AfterCollapse);
+            this.treeViewFoldersRight.AfterExpand += new System.Windows.Forms.TreeViewEventHandler(this.FolderTree_AfterExpand);
+            this.treeViewFoldersRight.ScrollMoved += new System.EventHandler(this.FolderTree_Scrolled);
+            this.treeViewFoldersRight.DoubleClick += new System.EventHandler(this.TreeViewResults_DoubleClick);
             //
             // columnStatus
             //
@@ -423,7 +553,12 @@ namespace FileExplorer.Dialogs
             this.tabControlResults.ResumeLayout(false);
             this.tabPageTree.ResumeLayout(false);
             this.tabPageList.ResumeLayout(false);
+            this.tabPageSideBySide.ResumeLayout(false);
             this.panelHex.ResumeLayout(false);
+            this.splitContainerFolders.Panel1.ResumeLayout(false);
+            this.splitContainerFolders.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainerFolders)).EndInit();
+            this.splitContainerFolders.ResumeLayout(false);
             this.splitContainerDiff.Panel1.ResumeLayout(false);
             this.splitContainerDiff.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerDiff)).EndInit();
@@ -467,5 +602,14 @@ namespace FileExplorer.Dialogs
         private System.Windows.Forms.RichTextBox richTextBoxHexLeft;
         private System.Windows.Forms.Label labelHexRight;
         private System.Windows.Forms.RichTextBox richTextBoxHexRight;
+        private System.Windows.Forms.Label labelFilter;
+        private System.Windows.Forms.ComboBox comboBoxFilter;
+        private System.Windows.Forms.Button btnBack;
+        private System.Windows.Forms.TabPage tabPageSideBySide;
+        private System.Windows.Forms.SplitContainer splitContainerFolders;
+        private System.Windows.Forms.Label labelFoldersLeft;
+        private FileExplorer.Controls.ScrollableTreeView treeViewFoldersLeft;
+        private System.Windows.Forms.Label labelFoldersRight;
+        private FileExplorer.Controls.ScrollableTreeView treeViewFoldersRight;
     }
 }

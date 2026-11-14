@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -123,6 +124,12 @@ namespace FileExplorer.Controls
                     || extension.Equals(".dll", StringComparison.OrdinalIgnoreCase))
                 {
                     ShowPeBrowser(path);
+                    return;
+                }
+
+                if (extension.Equals(".zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    ShowZipBrowser(path);
                     return;
                 }
 
@@ -848,6 +855,207 @@ namespace FileExplorer.Controls
 
         #endregion
 
+        #region Zip archive browser
+
+        private const int MaxZipEntries = 20000;
+
+        private sealed class ZipEntryInfo
+        {
+            public string FullName = string.Empty;
+            public long Length;
+            public long CompressedLength;
+        }
+
+        private void ShowZipBrowser(string path)
+        {
+            int sequence = ++_previewSequence;
+            ShowMessage("Reading archive...");
+            Cursor = Cursors.WaitCursor;
+
+            var thread = new Thread(() =>
+            {
+                List<ZipEntryInfo> entries = new List<ZipEntryInfo>();
+                int totalEntries = 0;
+                string error = null;
+
+                try
+                {
+                    using (var archive = ZipFile.OpenRead(path))
+                    {
+                        totalEntries = archive.Entries.Count;
+
+                        foreach (var entry in archive.Entries)
+                        {
+                            if (entries.Count >= MaxZipEntries)
+                            {
+                                break;
+                            }
+
+                            entries.Add(new ZipEntryInfo
+                            {
+                                FullName = entry.FullName,
+                                Length = entry.Length,
+                                CompressedLength = entry.CompressedLength
+                            });
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                }
+
+                try
+                {
+                    BeginInvoke((MethodInvoker)(() =>
+                    {
+                        if (sequence != _previewSequence)
+                        {
+                            return;
+                        }
+
+                        Cursor = Cursors.Default;
+
+                        if (error != null)
+                        {
+                            ShowMessage("Cannot read the zip archive.\r\n\r\n" + error);
+                            return;
+                        }
+
+                        BuildZipTree(entries, totalEntries, Path.GetFileName(path));
+                    }));
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            });
+
+            thread.IsBackground = true;
+            thread.Start();
+        }
+
+        private void BuildZipTree(List<ZipEntryInfo> entries, int totalEntries, string fileName)
+        {
+            _jsonMode = false;
+            _xmlMode = false;
+            _textContent = null;
+            _treeBuilt = true;
+
+            treeViewPreview.BeginUpdate();
+            treeViewPreview.Nodes.Clear();
+            _treeNodeCount = 0;
+            _treeTruncated = false;
+
+            long totalUncompressed = 0;
+            int fileCount = 0;
+
+            foreach (ZipEntryInfo entry in entries)
+            {
+                if (entry.FullName.Length > 0
+                    && !entry.FullName.EndsWith("/", StringComparison.Ordinal))
+                {
+                    totalUncompressed += entry.Length;
+                    fileCount++;
+                }
+            }
+
+            var rootLine = new NodeLine();
+            rootLine.Add("Zip archive ", ElementColor);
+            rootLine.Add(fileName, ContentColor);
+            rootLine.Add("  \u2014  " + fileCount + " file(s), " + FormatSize(totalUncompressed)
+                + (fileCount < totalEntries ? "  (" + totalEntries + " entries incl. folders)" : string.Empty),
+                CommentColor);
+            var rootNode = NewNode(rootLine);
+            treeViewPreview.Nodes.Add(rootNode);
+
+            var directoryNodes = new Dictionary<string, TreeNode>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (ZipEntryInfo entry in entries)
+            {
+                if (_treeTruncated)
+                {
+                    break;
+                }
+
+                string fullName = entry.FullName.Replace('/', Path.DirectorySeparatorChar);
+                bool isDirectory = fullName.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal);
+                string[] parts = fullName.TrimEnd(Path.DirectorySeparatorChar)
+                    .Split(new[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length == 0)
+                {
+                    continue;
+                }
+
+                TreeNodeCollection currentNodes = rootNode.Nodes;
+                string builtPath = string.Empty;
+
+                for (int i = 0; i < parts.Length - 1; i++)
+                {
+                    builtPath = builtPath.Length == 0
+                        ? parts[i]
+                        : builtPath + Path.DirectorySeparatorChar + parts[i];
+
+                    TreeNode directoryNode;
+
+                    if (!directoryNodes.TryGetValue(builtPath, out directoryNode))
+                    {
+                        var line = new NodeLine();
+                        line.Add(parts[i] + Path.DirectorySeparatorChar, ElementColor);
+                        directoryNode = NewNode(line);
+                        directoryNodes[builtPath] = directoryNode;
+                        currentNodes.Add(directoryNode);
+                    }
+
+                    currentNodes = directoryNode.Nodes;
+                }
+
+                if (isDirectory)
+                {
+                    string directoryPath = builtPath.Length == 0
+                        ? parts[0]
+                        : builtPath + Path.DirectorySeparatorChar + parts[parts.Length - 1];
+
+                    if (!directoryNodes.ContainsKey(directoryPath))
+                    {
+                        var line = new NodeLine();
+                        line.Add(parts[parts.Length - 1] + Path.DirectorySeparatorChar, ElementColor);
+                        var node = NewNode(line);
+                        directoryNodes[directoryPath] = node;
+                        currentNodes.Add(node);
+                    }
+                }
+                else
+                {
+                    var line = new NodeLine();
+                    line.Add(parts[parts.Length - 1], ContentColor);
+                    line.Add("  " + FormatSize(entry.Length)
+                        + " (" + FormatSize(entry.CompressedLength) + " compressed)", CommentColor);
+                    currentNodes.Add(NewNode(line));
+                }
+            }
+
+            if (_treeTruncated)
+            {
+                var marker = new NodeLine();
+                marker.Add("... (output truncated)", CommentColor);
+                marker.IsTruncatedMarker = true;
+                rootNode.Nodes.Add(NewNode(marker));
+            }
+
+            rootNode.Expand();
+            treeViewPreview.EndUpdate();
+
+            btnTree.Visible = false;
+            btnText.Visible = false;
+            webBrowserPreview.Visible = false;
+            richTextBoxPreview.Visible = false;
+            chkWrap.Visible = false;
+            treeViewPreview.Visible = true;
+        }
+
+        #endregion
+
         #region PE browser (EXE/DLL)
 
         private void ShowPeBrowser(string path)
@@ -922,7 +1130,7 @@ namespace FileExplorer.Controls
                 rootNode.Nodes.Add(NewNode(marker));
             }
 
-            rootNode.Expand();
+            treeViewPreview.ExpandAll();
             treeViewPreview.EndUpdate();
 
             btnTree.Visible = false;

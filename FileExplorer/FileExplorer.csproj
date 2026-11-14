@@ -89,6 +89,10 @@
     <Compile Include="Services\PeBrowserService.cs" />
     <Compile Include="Services\ShellIconService.cs" />
     <Compile Include="Services\SearchService.cs" />
+    <Compile Include="Controls\ScrollableTreeView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Services\SearchService.cs" />
     <Compile Include="Services\ZipService.cs" />
   </ItemGroup>
   <ItemGroup>

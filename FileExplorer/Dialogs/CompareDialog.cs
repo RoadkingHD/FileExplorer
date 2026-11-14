@@ -23,9 +23,12 @@ namespace FileExplorer.Dialogs
         private static readonly Color FolderDifferentColor = Color.Firebrick;
         private static readonly Color FolderOnlyColor = Color.DarkGoldenrod;
         private static readonly Color FolderSameColor = Color.Gray;
+        private static readonly Color MissingColor = Color.FromArgb(170, 170, 170);
 
         private bool _comparing;
         private bool _syncingScroll;
+        private bool _syncingTree;
+        private List<string[]> _folderRows;
 
         public CompareDialog()
             : this(null, null)
@@ -100,6 +103,8 @@ namespace FileExplorer.Dialogs
                 return;
             }
 
+            btnBack.Visible = false;
+
             if (leftIsDirectory)
             {
                 CompareFolders(left, right);
@@ -107,6 +112,15 @@ namespace FileExplorer.Dialogs
             else
             {
                 CompareFiles(left, right);
+            }
+        }
+
+        private void BtnBack_Click(object sender, EventArgs e)
+        {
+            if (_folderRows != null)
+            {
+                btnBack.Visible = false;
+                ShowOnly(tabControlResults);
             }
         }
 
@@ -149,6 +163,9 @@ namespace FileExplorer.Dialogs
             SetBusy(true, "Comparing folders...");
             treeViewResults.Nodes.Clear();
             listViewResults.Items.Clear();
+            treeViewFoldersLeft.Nodes.Clear();
+            treeViewFoldersRight.Nodes.Clear();
+            _folderRows = null;
             ShowOnly(tabControlResults);
 
             string leftRoot = left;
@@ -171,8 +188,9 @@ namespace FileExplorer.Dialogs
                 {
                     BeginInvoke((MethodInvoker)(() =>
                     {
+                        _folderRows = rows;
                         SetBusy(false, null);
-                        PopulateFolderResults(rows);
+                        RepopulateFolderViews();
 
                         int different = 0;
                         int onlyLeft = 0;
@@ -320,191 +338,6 @@ namespace FileExplorer.Dialogs
             return rows;
         }
 
-        private void PopulateFolderResults(List<string[]> rows)
-        {
-            BuildFolderTree(rows);
-
-            listViewResults.BeginUpdate();
-
-            foreach (string[] row in rows)
-            {
-                var item = new ListViewItem(row[0]);
-                item.SubItems.Add(row[1]);
-                item.SubItems.Add(row[2]);
-                item.SubItems.Add(row[3]);
-                item.Tag = new[] { row.Length > 4 ? row[4] : string.Empty, row.Length > 5 ? row[5] : string.Empty };
-                item.ForeColor = StatusColor(row[0]);
-                listViewResults.Items.Add(item);
-            }
-
-            listViewResults.EndUpdate();
-        }
-
-        private static Color StatusColor(string status)
-        {
-            switch (status)
-            {
-                case "Different":
-                    return FolderDifferentColor;
-                case "Only in left":
-                case "Only in right":
-                    return FolderOnlyColor;
-                case "Same":
-                    return FolderSameColor;
-                default:
-                    return SystemColors.WindowText;
-            }
-        }
-
-        private void BuildFolderTree(List<string[]> rows)
-        {
-            treeViewResults.BeginUpdate();
-            treeViewResults.Nodes.Clear();
-
-            var directoryNodes = new Dictionary<string, TreeNode>(StringComparer.OrdinalIgnoreCase);
-            var directoryStatus = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (string[] row in rows)
-            {
-                string relativePath = row[1];
-                bool isDirectory = relativePath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal);
-                string[] parts = relativePath.TrimEnd(Path.DirectorySeparatorChar)
-                    .Split(new[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
-
-                if (parts.Length == 0)
-                {
-                    continue;
-                }
-
-                TreeNodeCollection currentNodes = treeViewResults.Nodes;
-                TreeNode currentNode = null;
-                string builtPath = string.Empty;
-
-                for (int i = 0; i < parts.Length - 1; i++)
-                {
-                    builtPath = builtPath.Length == 0
-                        ? parts[i]
-                        : builtPath + Path.DirectorySeparatorChar + parts[i];
-
-                    TreeNode directoryNode;
-
-                    if (!directoryNodes.TryGetValue(builtPath, out directoryNode))
-                    {
-                        directoryNode = new TreeNode(parts[i]);
-                        directoryNodes[builtPath] = directoryNode;
-                        directoryStatus[builtPath] = 0;
-                        currentNodes.Add(directoryNode);
-                    }
-
-                    currentNode = directoryNode;
-                    currentNodes = directoryNode.Nodes;
-                }
-
-                string name = parts[parts.Length - 1];
-                var leaf = new TreeNode(name);
-                leaf.ForeColor = StatusColor(row[0]);
-                leaf.Tag = new[] { row.Length > 4 ? row[4] : string.Empty, row.Length > 5 ? row[5] : string.Empty };
-                currentNodes.Add(leaf);
-
-                // Propagate the worst status up the directory chain.
-                int severity = StatusSeverity(row[0]);
-
-                if (severity > 0)
-                {
-                    string path = builtPath;
-
-                    while (path.Length > 0)
-                    {
-                        int existing;
-
-                        if (!directoryStatus.TryGetValue(path, out existing) || severity > existing)
-                        {
-                            directoryStatus[path] = severity;
-                        }
-
-                        int separatorIndex = path.LastIndexOf(Path.DirectorySeparatorChar);
-                        path = separatorIndex >= 0 ? path.Substring(0, separatorIndex) : string.Empty;
-                    }
-                }
-            }
-
-            foreach (KeyValuePair<string, TreeNode> pair in directoryNodes)
-            {
-                int severity;
-
-                if (directoryStatus.TryGetValue(pair.Key, out severity))
-                {
-                    if (severity == 2)
-                    {
-                        pair.Value.ForeColor = FolderDifferentColor;
-                    }
-                    else if (severity == 1)
-                    {
-                        pair.Value.ForeColor = FolderOnlyColor;
-                    }
-                    else
-                    {
-                        pair.Value.ForeColor = FolderSameColor;
-                    }
-                }
-            }
-
-            treeViewResults.EndUpdate();
-        }
-
-        private static int StatusSeverity(string status)
-        {
-            switch (status)
-            {
-                case "Different":
-                    return 2;
-                case "Only in left":
-                case "Only in right":
-                    return 1;
-                default:
-                    return 0;
-            }
-        }
-
-        private void TreeViewResults_DoubleClick(object sender, EventArgs e)
-        {
-            OpenCompareFromTag(treeViewResults.SelectedNode);
-        }
-
-        private void ListViewResults_DoubleClick(object sender, EventArgs e)
-        {
-            if (listViewResults.SelectedItems.Count == 0)
-            {
-                return;
-            }
-
-            OpenCompareFromPaths(listViewResults.SelectedItems[0].Tag as string[]);
-        }
-
-        private void OpenCompareFromTag(TreeNode node)
-        {
-            if (node != null)
-            {
-                OpenCompareFromPaths(node.Tag as string[]);
-            }
-        }
-
-        private void OpenCompareFromPaths(string[] paths)
-        {
-            if (paths == null || paths.Length < 2)
-            {
-                return;
-            }
-
-            if (paths[0].Length > 0 && paths[1].Length > 0
-                && File.Exists(paths[0]) && File.Exists(paths[1]))
-            {
-                textBoxLeft.Text = paths[0];
-                textBoxRight.Text = paths[1];
-                CompareFiles(paths[0], paths[1]);
-            }
-        }
-
         private void CollectEntries(
             string root,
             string relative,
@@ -559,6 +392,424 @@ namespace FileExplorer.Dialogs
                 return new string[0];
             }
         }
+
+        private void ComboBoxFilter_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_folderRows != null && !_comparing)
+            {
+                RepopulateFolderViews();
+            }
+        }
+
+        private List<string[]> GetFilteredRows()
+        {
+            if (_folderRows == null)
+            {
+                return new List<string[]>();
+            }
+
+            string filter = comboBoxFilter.SelectedItem as string;
+
+            if (filter == null || filter == "All")
+            {
+                return _folderRows;
+            }
+
+            var rows = new List<string[]>();
+
+            foreach (string[] row in _folderRows)
+            {
+                string status = row[0];
+
+                if (filter == "Differences only")
+                {
+                    if (status == "Different" || status == "Only in left" || status == "Only in right"
+                        || status == "Error" || status == "Truncated")
+                    {
+                        rows.Add(row);
+                    }
+                }
+                else if (filter == "Only in left")
+                {
+                    if (status == "Only in left")
+                    {
+                        rows.Add(row);
+                    }
+                }
+                else if (filter == "Only in right")
+                {
+                    if (status == "Only in right")
+                    {
+                        rows.Add(row);
+                    }
+                }
+            }
+
+            return rows;
+        }
+
+        private void RepopulateFolderViews()
+        {
+            List<string[]> rows = GetFilteredRows();
+
+            BuildFolderTree(treeViewResults, rows, null);
+            PopulateFolderList(rows);
+            BuildSideBySideTrees(rows);
+        }
+
+        private void PopulateFolderList(List<string[]> rows)
+        {
+            listViewResults.BeginUpdate();
+            listViewResults.Items.Clear();
+
+            foreach (string[] row in rows)
+            {
+                var item = new ListViewItem(row[0]);
+                item.SubItems.Add(row[1]);
+                item.SubItems.Add(row[2]);
+                item.SubItems.Add(row[3]);
+                item.Tag = new[] { row.Length > 4 ? row[4] : string.Empty, row.Length > 5 ? row[5] : string.Empty };
+                item.ForeColor = StatusColor(row[0]);
+                listViewResults.Items.Add(item);
+            }
+
+            listViewResults.EndUpdate();
+        }
+
+        private static Color StatusColor(string status)
+        {
+            switch (status)
+            {
+                case "Different":
+                    return FolderDifferentColor;
+                case "Only in left":
+                case "Only in right":
+                    return FolderOnlyColor;
+                case "Same":
+                    return FolderSameColor;
+                default:
+                    return SystemColors.WindowText;
+            }
+        }
+
+        /// <summary>
+        /// Builds a merged tree of the comparison rows. When placeholderSide is
+        /// "left" or "right", rows that exist only on the opposite side are shown
+        /// as dimmed placeholder nodes (used for the side-by-side views).
+        /// </summary>
+        private void BuildFolderTree(TreeView target, List<string[]> rows, string placeholderSide)
+        {
+            target.BeginUpdate();
+            target.Nodes.Clear();
+
+            var directoryNodes = new Dictionary<string, TreeNode>(StringComparer.OrdinalIgnoreCase);
+            var directoryStatus = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (string[] row in rows)
+            {
+                string relativePath = row[1];
+                string status = row[0];
+                string[] paths = new[]
+                {
+                    row.Length > 4 ? row[4] : string.Empty,
+                    row.Length > 5 ? row[5] : string.Empty
+                };
+
+                bool isDirectory = relativePath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal);
+                string[] parts = relativePath.TrimEnd(Path.DirectorySeparatorChar)
+                    .Split(new[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length == 0)
+                {
+                    continue;
+                }
+
+                bool placeholder = (placeholderSide == "left" && status == "Only in right")
+                    || (placeholderSide == "right" && status == "Only in left");
+
+                TreeNodeCollection currentNodes = target.Nodes;
+                string builtPath = string.Empty;
+
+                for (int i = 0; i < parts.Length - 1; i++)
+                {
+                    builtPath = builtPath.Length == 0
+                        ? parts[i]
+                        : builtPath + Path.DirectorySeparatorChar + parts[i];
+
+                    TreeNode directoryNode;
+
+                    if (!directoryNodes.TryGetValue(builtPath, out directoryNode))
+                    {
+                        directoryNode = new TreeNode(parts[i]);
+                        directoryNodes[builtPath] = directoryNode;
+                        directoryStatus[builtPath] = 0;
+                        currentNodes.Add(directoryNode);
+                    }
+
+                    currentNodes = directoryNode.Nodes;
+                }
+
+                string name = parts[parts.Length - 1];
+                TreeNode leaf;
+
+                if (placeholder)
+                {
+                    leaf = new TreeNode(name + "  (only in " + (placeholderSide == "left" ? "right" : "left") + ")");
+                    leaf.ForeColor = MissingColor;
+                    leaf.Tag = null;
+                }
+                else
+                {
+                    leaf = new TreeNode(isDirectory ? name + Path.DirectorySeparatorChar : name);
+                    leaf.ForeColor = StatusColor(status);
+                    leaf.Tag = paths;
+                    leaf.ToolTipText = status;
+                }
+
+                currentNodes.Add(leaf);
+
+                if (!placeholder)
+                {
+                    int severity = StatusSeverity(status);
+
+                    if (severity > 0)
+                    {
+                        string path = builtPath;
+
+                        while (path.Length > 0)
+                        {
+                            int existing;
+
+                            if (!directoryStatus.TryGetValue(path, out existing) || severity > existing)
+                            {
+                                directoryStatus[path] = severity;
+                            }
+
+                            int separatorIndex = path.LastIndexOf(Path.DirectorySeparatorChar);
+                            path = separatorIndex >= 0 ? path.Substring(0, separatorIndex) : string.Empty;
+                        }
+                    }
+                }
+            }
+
+            foreach (KeyValuePair<string, TreeNode> pair in directoryNodes)
+            {
+                int severity;
+
+                if (directoryStatus.TryGetValue(pair.Key, out severity))
+                {
+                    if (severity == 2)
+                    {
+                        pair.Value.ForeColor = FolderDifferentColor;
+                    }
+                    else if (severity == 1)
+                    {
+                        pair.Value.ForeColor = FolderOnlyColor;
+                    }
+                    else
+                    {
+                        pair.Value.ForeColor = FolderSameColor;
+                    }
+                }
+            }
+
+            target.EndUpdate();
+        }
+
+        private void BuildSideBySideTrees(List<string[]> rows)
+        {
+            BuildFolderTree(treeViewFoldersLeft, rows, "left");
+            BuildFolderTree(treeViewFoldersRight, rows, "right");
+
+            foreach (TreeNode node in treeViewFoldersLeft.Nodes)
+            {
+                node.Expand();
+            }
+
+            foreach (TreeNode node in treeViewFoldersRight.Nodes)
+            {
+                node.Expand();
+            }
+        }
+
+        private static int StatusSeverity(string status)
+        {
+            switch (status)
+            {
+                case "Different":
+                    return 2;
+                case "Only in left":
+                case "Only in right":
+                    return 1;
+                default:
+                    return 0;
+            }
+        }
+
+        private void TreeViewResults_DoubleClick(object sender, EventArgs e)
+        {
+            OpenFromTree(sender as TreeView);
+        }
+
+        private void OpenFromTree(TreeView tree)
+        {
+            if (tree != null)
+            {
+                OpenCompareFromPaths(tree.SelectedNode == null ? null : tree.SelectedNode.Tag as string[]);
+            }
+        }
+
+        private void ListViewResults_DoubleClick(object sender, EventArgs e)
+        {
+            if (listViewResults.SelectedItems.Count == 0)
+            {
+                return;
+            }
+
+            OpenCompareFromPaths(listViewResults.SelectedItems[0].Tag as string[]);
+        }
+
+        private void OpenCompareFromPaths(string[] paths)
+        {
+            if (paths == null || paths.Length < 2)
+            {
+                return;
+            }
+
+            if (paths[0].Length > 0 && paths[1].Length > 0
+                && File.Exists(paths[0]) && File.Exists(paths[1]))
+            {
+                textBoxLeft.Text = paths[0];
+                textBoxRight.Text = paths[1];
+                btnBack.Visible = true;
+                CompareFiles(paths[0], paths[1]);
+            }
+        }
+
+        #region Side-by-side tree synchronization
+
+        private void FolderTree_Scrolled(object sender, EventArgs e)
+        {
+            if (_syncingScroll)
+            {
+                return;
+            }
+
+            var source = sender as TreeView;
+
+            if (source == null)
+            {
+                return;
+            }
+
+            TreeView target = source == treeViewFoldersLeft ? treeViewFoldersRight : treeViewFoldersLeft;
+
+            _syncingScroll = true;
+
+            try
+            {
+                if (source.TopNode != null)
+                {
+                    target.TopNode = source.TopNode;
+                }
+            }
+            finally
+            {
+                _syncingScroll = false;
+            }
+        }
+
+        private void FolderTree_AfterExpand(object sender, TreeViewEventArgs e)
+        {
+            SyncTreeExpansion(sender as TreeView, e.Node, true);
+        }
+
+        private void FolderTree_AfterCollapse(object sender, TreeViewEventArgs e)
+        {
+            SyncTreeExpansion(sender as TreeView, e.Node, false);
+        }
+
+        private void SyncTreeExpansion(TreeView source, TreeNode node, bool expand)
+        {
+            if (_syncingTree || source == null || node == null)
+            {
+                return;
+            }
+
+            TreeView target = source == treeViewFoldersLeft ? treeViewFoldersRight : treeViewFoldersLeft;
+
+            _syncingTree = true;
+
+            try
+            {
+                TreeNode other = FindNodeByFullPath(target, node.Text);
+
+                if (other != null)
+                {
+                    if (expand)
+                    {
+                        other.Expand();
+                    }
+                    else
+                    {
+                        other.Collapse();
+                    }
+                }
+
+                if (source.TopNode != null)
+                {
+                    target.TopNode = source.TopNode;
+                }
+            }
+            finally
+            {
+                _syncingTree = false;
+            }
+        }
+
+        private static TreeNode FindNodeByFullPath(TreeView tree, string fullPath)
+        {
+            string[] parts = fullPath.Split(new[] { tree.PathSeparator }, StringSplitOptions.None);
+            TreeNodeCollection nodes = tree.Nodes;
+            TreeNode current = null;
+
+            foreach (string part in parts)
+            {
+                bool found = false;
+
+                foreach (TreeNode node in nodes)
+                {
+                    if (string.Equals(NormalizeNodeName(node.Text), part, StringComparison.OrdinalIgnoreCase))
+                    {
+                        current = node;
+                        nodes = node.Nodes;
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                {
+                    return null;
+                }
+            }
+
+            return current;
+        }
+
+        private static string NormalizeNodeName(string text)
+        {
+            int suffixIndex = text.IndexOf("  (", StringComparison.Ordinal);
+
+            if (suffixIndex >= 0)
+            {
+                text = text.Substring(0, suffixIndex);
+            }
+
+            return text.TrimEnd(Path.DirectorySeparatorChar);
+        }
+
+        #endregion
 
         #endregion
 
@@ -792,7 +1043,7 @@ namespace FileExplorer.Dialogs
 
         #endregion
 
-        #region Synchronized scrolling
+        #region Synchronized scrolling (diff and hex panes)
 
         private void DiffBox_Scroll(object sender, EventArgs e)
         {
