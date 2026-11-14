@@ -139,8 +139,7 @@ namespace FileExplorer.Dialogs
             //
             // lblSummary
             //
-            this.lblSummary.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblSummary.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)));
             this.lblSummary.AutoEllipsis = true;
             this.lblSummary.Location = new System.Drawing.Point(12, 69);
             this.lblSummary.Name = "lblSummary";
@@ -171,6 +170,7 @@ namespace FileExplorer.Dialogs
             this.comboBoxFilter.Size = new System.Drawing.Size(125, 21);
             this.comboBoxFilter.TabIndex = 13;
             this.comboBoxFilter.SelectedIndexChanged += new System.EventHandler(this.ComboBoxFilter_SelectedIndexChanged);
+            this.comboBoxFilter.SelectedIndex = 0;
             //
             // btnBack
             //
