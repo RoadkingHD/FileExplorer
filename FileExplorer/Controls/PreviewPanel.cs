@@ -11,6 +11,7 @@ using System.Threading;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using System.Xml.Linq;
+using FileExplorer.Services;
 using Microsoft.Win32;
 
 namespace FileExplorer.Controls
@@ -118,6 +119,13 @@ namespace FileExplorer.Controls
                     return;
                 }
 
+                if (extension.Equals(".exe", StringComparison.OrdinalIgnoreCase)
+                    || extension.Equals(".dll", StringComparison.OrdinalIgnoreCase))
+                {
+                    ShowPeBrowser(path);
+                    return;
+                }
+
                 if (IsBinary(path))
                 {
                     ShowMessage("Binary file. Preview is not available.");
@@ -174,7 +182,7 @@ namespace FileExplorer.Controls
             chkWrap.Visible = true;
             richTextBoxPreview.Clear();
             richTextBoxPreview.ForeColor = SystemColors.GrayText;
-            richTextBoxPreview.Text = "Select a single file to preview it here.\r\n\r\nSupported: text, JSON, XML, HTML.";
+            richTextBoxPreview.Text = "Select a single file to preview it here.\r\n\r\nSupported: text, JSON, XML, HTML, PDF, Office documents, EXE/DLL (PE browser).";
         }
 
         private void ShowText(string content, bool highlightJson, bool highlightMarkup)
@@ -836,6 +844,253 @@ namespace FileExplorer.Controls
             {
                 Segments.Add(new Segment(text, color));
             }
+        }
+
+        #endregion
+
+        #region PE browser (EXE/DLL)
+
+        private void ShowPeBrowser(string path)
+        {
+            int sequence = ++_previewSequence;
+            ShowMessage("Analyzing PE image...");
+            Cursor = Cursors.WaitCursor;
+
+            var thread = new Thread(() =>
+            {
+                PeInfo peInfo = PeBrowserService.ReadPeInfo(path);
+
+                try
+                {
+                    BeginInvoke((MethodInvoker)(() =>
+                    {
+                        if (sequence != _previewSequence)
+                        {
+                            return;
+                        }
+
+                        Cursor = Cursors.Default;
+
+                        if (!peInfo.IsValid)
+                        {
+                            ShowMessage("Cannot read the PE image.\r\n\r\n" + peInfo.Error);
+                            return;
+                        }
+
+                        BuildPeTree(peInfo, Path.GetFileName(path));
+                    }));
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            });
+
+            thread.IsBackground = true;
+            thread.Start();
+        }
+
+        private void BuildPeTree(PeInfo info, string fileName)
+        {
+            _jsonMode = false;
+            _xmlMode = false;
+            _textContent = null;
+            _treeBuilt = true;
+
+            treeViewPreview.BeginUpdate();
+            treeViewPreview.Nodes.Clear();
+            _treeNodeCount = 0;
+            _treeTruncated = false;
+
+            var rootLine = new NodeLine();
+            rootLine.Add("PE image ", ElementColor);
+            rootLine.Add(fileName, ContentColor);
+            rootLine.Add("  \u2014  " + info.KindText + ", " + info.MachineName, CommentColor);
+            var rootNode = NewNode(rootLine);
+            treeViewPreview.Nodes.Add(rootNode);
+
+            AddPeGeneralNodes(rootNode, info);
+            AddPeManagedNodes(rootNode, info);
+            AddPeSectionNodes(rootNode, info);
+            AddPeImportNodes(rootNode, info);
+            AddPeExportNodes(rootNode, info);
+
+            if (_treeTruncated)
+            {
+                var marker = new NodeLine();
+                marker.Add("... (output truncated)", CommentColor);
+                marker.IsTruncatedMarker = true;
+                rootNode.Nodes.Add(NewNode(marker));
+            }
+
+            rootNode.Expand();
+            treeViewPreview.EndUpdate();
+
+            btnTree.Visible = false;
+            btnText.Visible = false;
+            webBrowserPreview.Visible = false;
+            richTextBoxPreview.Visible = false;
+            chkWrap.Visible = false;
+            treeViewPreview.Visible = true;
+        }
+
+        private void AddPeGeneralNodes(TreeNode parent, PeInfo info)
+        {
+            var node = AddPeKeyValueNode(parent, "General", string.Empty);
+
+            AddPeKeyValueNode(node, "Type", info.KindText);
+            AddPeKeyValueNode(node, "Machine", info.MachineName + " (0x" + info.Machine.ToString("X4") + ")");
+            AddPeKeyValueNode(node, "Format", info.IsPe32Plus ? "PE32+ (64-bit)" : "PE32 (32-bit)");
+            AddPeKeyValueNode(node, "Subsystem", info.SubsystemName);
+            AddPeKeyValueNode(node, "Linker timestamp", info.LinkerTimestampText);
+            AddPeKeyValueNode(node, "Entry point", "RVA 0x" + info.EntryPointRva.ToString("X"));
+            AddPeKeyValueNode(node, "Image base", "0x" + info.ImageBase.ToString("X"));
+            AddPeKeyValueNode(node, "Size of image", "0x" + info.SizeOfImage.ToString("X") + " (" + FormatSize(info.SizeOfImage) + ")");
+        }
+
+        private void AddPeManagedNodes(TreeNode parent, PeInfo info)
+        {
+            var node = AddPeKeyValueNode(parent, "Code type", info.ManagedText);
+
+            if (!info.IsManaged)
+            {
+                AddPeKeyValueNode(node, "Runtime", "No CLR header \u2014 native machine code");
+                return;
+            }
+
+            AddPeKeyValueNode(node, "Runtime version", info.RuntimeVersionText);
+
+            if (info.TargetFramework.Length > 0)
+            {
+                AddPeKeyValueNode(node, "Target framework", info.TargetFramework);
+            }
+            else
+            {
+                AddPeKeyValueNode(node, "Target framework", "not recorded in metadata");
+            }
+
+            if (info.UsesMscoree)
+            {
+                AddPeKeyValueNode(node, "Runtime host", "mscoree.dll");
+            }
+        }
+
+        private void AddPeSectionNodes(TreeNode parent, PeInfo info)
+        {
+            var node = AddPeKeyValueNode(parent, "Sections", info.Sections.Count.ToString());
+
+            foreach (PeSectionInfo section in info.Sections)
+            {
+                if (_treeTruncated)
+                {
+                    return;
+                }
+
+                var line = new NodeLine();
+                line.Add(section.Name, ElementColor);
+                line.Add("  raw " + FormatSize(section.SizeOfRawData)
+                    + ", virtual " + FormatSize(section.VirtualSize)
+                    + (section.Characteristics.Length > 0 ? ", " + section.Characteristics : string.Empty),
+                    CommentColor);
+                node.Nodes.Add(NewNode(line));
+            }
+        }
+
+        private void AddPeImportNodes(TreeNode parent, PeInfo info)
+        {
+            int totalFunctions = 0;
+
+            foreach (PeImportInfo import in info.Imports)
+            {
+                totalFunctions += import.Functions.Count;
+            }
+
+            var node = AddPeKeyValueNode(
+                parent,
+                "Imports",
+                info.Imports.Count + " module(s), " + totalFunctions + " function(s)");
+
+            foreach (PeImportInfo import in info.Imports)
+            {
+                if (_treeTruncated)
+                {
+                    return;
+                }
+
+                var dllNode = NewNode(MakePeLine(import.DllName, import.Functions.Count + " function(s)"));
+                node.Nodes.Add(dllNode);
+
+                foreach (string function in import.Functions)
+                {
+                    if (_treeTruncated)
+                    {
+                        return;
+                    }
+
+                    var line = new NodeLine();
+                    line.Add(function, ContentColor);
+                    dllNode.Nodes.Add(NewNode(line));
+                }
+
+                if (import.Truncated)
+                {
+                    var truncatedLine = new NodeLine();
+                    truncatedLine.Add("... (list truncated)", CommentColor);
+                    dllNode.Nodes.Add(NewNode(truncatedLine));
+                }
+            }
+        }
+
+        private void AddPeExportNodes(TreeNode parent, PeInfo info)
+        {
+            if (info.ExportFunctionCount == 0 && info.Exports.Count == 0)
+            {
+                AddPeKeyValueNode(parent, "Exports", "none");
+                return;
+            }
+
+            var node = AddPeKeyValueNode(
+                parent,
+                "Exports",
+                info.ExportFunctionCount + " function(s), " + info.ExportNameCount + " name(s)");
+
+            foreach (string export in info.Exports)
+            {
+                if (_treeTruncated)
+                {
+                    return;
+                }
+
+                var line = new NodeLine();
+                line.Add(export, ContentColor);
+                node.Nodes.Add(NewNode(line));
+            }
+
+            if (info.ExportsTruncated)
+            {
+                var truncatedLine = new NodeLine();
+                truncatedLine.Add("... (list truncated)", CommentColor);
+                node.Nodes.Add(NewNode(truncatedLine));
+            }
+        }
+
+        private TreeNode AddPeKeyValueNode(TreeNode parent, string key, string value)
+        {
+            var node = NewNode(MakePeLine(key, value));
+            parent.Nodes.Add(node);
+            return node;
+        }
+
+        private static NodeLine MakePeLine(string key, string value)
+        {
+            var line = new NodeLine();
+            line.Add(key, ElementColor);
+
+            if (!string.IsNullOrEmpty(value))
+            {
+                line.Add(": " + value, ContentColor);
+            }
+
+            return line;
         }
 
         #endregion

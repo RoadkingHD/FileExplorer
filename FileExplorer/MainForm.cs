@@ -559,11 +559,79 @@ namespace FileExplorer
             }
         }
 
+        private void SearchToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ShowSearchDialog();
+        }
+
+        private void ToolStripButtonSearch_Click(object sender, EventArgs e)
+        {
+            ShowSearchDialog();
+        }
+
+        private void CompareToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ShowCompareDialog();
+        }
+
+        private void ToolStripButtonCompare_Click(object sender, EventArgs e)
+        {
+            ShowCompareDialog();
+        }
+
+        private void ShowSearchDialog()
+        {
+            using (var dialog = new SearchDialog())
+            {
+                dialog.RootPath = _currentPath ?? string.Empty;
+
+                if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedResult == null)
+                {
+                    return;
+                }
+
+                SearchResult result = dialog.SelectedResult;
+
+                if (Directory.Exists(result.Directory))
+                {
+                    Navigate(result.Directory);
+                    SelectFileInList(result.Path);
+                }
+            }
+        }
+
+        private void SelectFileInList(string path)
+        {
+            foreach (ListViewItem item in listViewFiles.Items)
+            {
+                if (string.Equals((string)item.Tag, path, StringComparison.OrdinalIgnoreCase))
+                {
+                    item.Selected = true;
+                    item.Focused = true;
+                    item.EnsureVisible();
+                    break;
+                }
+            }
+        }
+
+        private void ShowCompareDialog()
+        {
+            List<string> selected = GetSelectedPaths();
+
+            string left = selected.Count > 0 ? selected[0] : null;
+            string right = selected.Count > 1 ? selected[1] : null;
+
+            using (var dialog = new CompareDialog(left, right))
+            {
+                dialog.ShowDialog(this);
+            }
+        }
+
         private void AboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
             MessageBox.Show(
                 this,
-                "FileExplorer\r\n\r\nA Windows Explorer style file browser with zip support,\ncustom right-click actions and a preview panel for text, JSON, XML and HTML files.",
+                "FileExplorer\r\n\r\nA Windows Explorer style file browser with zip support,\ncustom right-click actions, a preview panel (text, JSON, XML, HTML, PDF,\nOffice documents, EXE/DLL PE browser), file search and folder/file comparison.",
                 "About FileExplorer",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);

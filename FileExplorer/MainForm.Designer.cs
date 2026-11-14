@@ -51,6 +51,9 @@ namespace FileExplorer
             this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
             this.toolStripButtonZip = new System.Windows.Forms.ToolStripButton();
             this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
+            this.toolStripButtonSearch = new System.Windows.Forms.ToolStripButton();
+            this.toolStripButtonCompare = new System.Windows.Forms.ToolStripButton();
+            this.toolStripSeparator14 = new System.Windows.Forms.ToolStripSeparator();
             this.toolStripButtonPreview = new System.Windows.Forms.ToolStripButton();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripStatusLabelItems = new System.Windows.Forms.ToolStripStatusLabel();
@@ -93,6 +96,8 @@ namespace FileExplorer
             this.contextFolderRenameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator13 = new System.Windows.Forms.ToolStripSeparator();
             this.contextFolderRefreshToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.searchToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.compareToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip1.SuspendLayout();
             this.toolStrip1.SuspendLayout();
             this.statusStrip1.SuspendLayout();
@@ -245,6 +250,8 @@ namespace FileExplorer
             this.toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.zipSelectionToolStripMenuItem,
             this.toolStripSeparator4,
+            this.searchToolStripMenuItem,
+            this.compareToolStripMenuItem,
             this.manageCustomActionsToolStripMenuItem});
             this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
             this.toolsToolStripMenuItem.Size = new System.Drawing.Size(46, 20);
@@ -261,6 +268,21 @@ namespace FileExplorer
             // 
             this.toolStripSeparator4.Name = "toolStripSeparator4";
             this.toolStripSeparator4.Size = new System.Drawing.Size(221, 6);
+            //
+            // searchToolStripMenuItem
+            //
+            this.searchToolStripMenuItem.Name = "searchToolStripMenuItem";
+            this.searchToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.F)));
+            this.searchToolStripMenuItem.Size = new System.Drawing.Size(224, 22);
+            this.searchToolStripMenuItem.Text = "&Search files...";
+            this.searchToolStripMenuItem.Click += new System.EventHandler(this.SearchToolStripMenuItem_Click);
+            //
+            // compareToolStripMenuItem
+            //
+            this.compareToolStripMenuItem.Name = "compareToolStripMenuItem";
+            this.compareToolStripMenuItem.Size = new System.Drawing.Size(224, 22);
+            this.compareToolStripMenuItem.Text = "&Compare files or folders...";
+            this.compareToolStripMenuItem.Click += new System.EventHandler(this.CompareToolStripMenuItem_Click);
             // 
             // manageCustomActionsToolStripMenuItem
             // 
@@ -297,6 +319,9 @@ namespace FileExplorer
             this.toolStripSeparator6,
             this.toolStripButtonZip,
             this.toolStripSeparator7,
+            this.toolStripButtonSearch,
+            this.toolStripButtonCompare,
+            this.toolStripSeparator14,
             this.toolStripButtonPreview});
             this.toolStrip1.Location = new System.Drawing.Point(0, 24);
             this.toolStrip1.Name = "toolStrip1";
@@ -400,6 +425,31 @@ namespace FileExplorer
             this.toolStripButtonPreview.Text = "Preview";
             this.toolStripButtonPreview.ToolTipText = "Show or hide the preview panel";
             this.toolStripButtonPreview.CheckedChanged += new System.EventHandler(this.ToolStripButtonPreview_CheckedChanged);
+            //
+            // toolStripButtonSearch
+            //
+            this.toolStripButtonSearch.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonSearch.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonSearch.Name = "toolStripButtonSearch";
+            this.toolStripButtonSearch.Size = new System.Drawing.Size(23, 22);
+            this.toolStripButtonSearch.Text = "Search";
+            this.toolStripButtonSearch.ToolTipText = "Search for files by name and content (Ctrl+F)";
+            this.toolStripButtonSearch.Click += new System.EventHandler(this.ToolStripButtonSearch_Click);
+            //
+            // toolStripButtonCompare
+            //
+            this.toolStripButtonCompare.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonCompare.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonCompare.Name = "toolStripButtonCompare";
+            this.toolStripButtonCompare.Size = new System.Drawing.Size(23, 22);
+            this.toolStripButtonCompare.Text = "Compare";
+            this.toolStripButtonCompare.ToolTipText = "Compare two files or folders (text diff or hex view)";
+            this.toolStripButtonCompare.Click += new System.EventHandler(this.ToolStripButtonCompare_Click);
+            //
+            // toolStripSeparator14
+            //
+            this.toolStripSeparator14.Name = "toolStripSeparator14";
+            this.toolStripSeparator14.Size = new System.Drawing.Size(6, 25);
             // 
             // statusStrip1
             // 
@@ -827,6 +877,9 @@ namespace FileExplorer
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator6;
         private System.Windows.Forms.ToolStripButton toolStripButtonZip;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator7;
+        private System.Windows.Forms.ToolStripButton toolStripButtonSearch;
+        private System.Windows.Forms.ToolStripButton toolStripButtonCompare;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator14;
         private System.Windows.Forms.ToolStripButton toolStripButtonPreview;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabelItems;
@@ -869,6 +922,8 @@ namespace FileExplorer
         private System.Windows.Forms.ToolStripMenuItem contextFolderRenameToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator13;
         private System.Windows.Forms.ToolStripMenuItem contextFolderRefreshToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem searchToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem compareToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem previewPositionToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem previewRightToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem previewBottomToolStripMenuItem;
