@@ -421,6 +421,9 @@ namespace FileExplorer.Dialogs
             this.CancelButton = this.btnClose;
             this.ClientSize = new System.Drawing.Size(838, 552);
             this.Controls.Add(this.lblSummary);
+            this.Controls.Add(this.labelFilter);
+            this.Controls.Add(this.comboBoxFilter);
+            this.Controls.Add(this.btnBack);
             this.Controls.Add(this.btnCompare);
             this.Controls.Add(this.btnClose);
             this.Controls.Add(this.btnBrowseRight);

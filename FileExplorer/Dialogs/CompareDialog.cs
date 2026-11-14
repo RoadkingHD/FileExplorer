@@ -687,7 +687,14 @@ namespace FileExplorer.Dialogs
                 }
                 else if (source.TopNode != null)
                 {
-                    target.TopNode = source.TopNode;
+                    // TopNode must be a node of the TARGET tree, so map the
+                    // source's first visible node to its counterpart by path.
+                    TreeNode mapped = FindNodeByFullPath(target, source.TopNode.FullPath);
+
+                    if (mapped != null)
+                    {
+                        target.TopNode = mapped;
+                    }
                 }
             }
             finally
